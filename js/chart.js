@@ -193,35 +193,45 @@
     }
 
     // --- Process lines (drawn before points so markers sit on top) ---
-    function familyW(path, tdb, ref) {
-      var w;
-      if (path === 'saturation') {
-        w = psychrolib.GetSatHumRatio(tdb, P);
-      } else if (path === 'wetbulb') {
-        w = psychrolib.GetHumRatioFromTWetBulb(tdb, ref.twb, P);
-      } else { // enthalpy
-        var a0 = psychrolib.GetMoistAirEnthalpy(tdb, 0);
-        var b0 = psychrolib.GetMoistAirEnthalpy(tdb, 1) - a0;
-        w = (ref.h - a0) / b0;
-      }
+    // No moist-air state can exceed 100% RH, so W is clamped to the saturation
+    // curve (and the chart bounds). A straight chord that would cross saturation
+    // therefore rides along it — the realistic cooling/dehumidifying-coil path.
+    function clampW(w, tdb) {
+      var wsat = psychrolib.GetSatHumRatio(tdb, P);
+      var lim = Math.min(wsat, cfg.wMax);
+      if (w > lim) w = lim;
       if (w < 0) w = 0;
-      if (w > cfg.wMax) w = cfg.wMax;
       return w;
     }
     function sampleSegment(a, b, path) {
-      if (path !== 'saturation' && path !== 'wetbulb' && path !== 'enthalpy') {
-        return [a, b];
+      var N = 24, out = [];
+      var ref = null;
+      if (path === 'wetbulb' || path === 'enthalpy') {
+        ref = {
+          twb: psychrolib.GetTWetBulbFromHumRatio(a.tdb, a.w, P),
+          h: psychrolib.GetMoistAirEnthalpy(a.tdb, a.w)
+        };
       }
-      var ref = {
-        twb: psychrolib.GetTWetBulbFromHumRatio(a.tdb, a.w, P),
-        h: psychrolib.GetMoistAirEnthalpy(a.tdb, a.w)
-      };
-      var N = 24, out = [a];
-      for (var i = 1; i < N; i++) {
-        var td = a.tdb + (b.tdb - a.tdb) * i / N;
-        out.push({ tdb: td, w: familyW(path, td, ref) });
+      for (var i = 0; i <= N; i++) {
+        var f = i / N;
+        var td = a.tdb + (b.tdb - a.tdb) * f;
+        var w;
+        if (i === 0) { w = a.w; }            // anchor exactly to the endpoint markers
+        else if (i === N) { w = b.w; }
+        else if (path === 'saturation') { w = psychrolib.GetSatHumRatio(td, P); }
+        else if (path === 'wetbulb') {
+          // A constant-wet-bulb line reaches saturation at Tdb = Twb and cannot
+          // continue below it (psychrolib rejects Twb > Tdb), so ride saturation there.
+          w = (td <= ref.twb) ? psychrolib.GetSatHumRatio(td, P)
+                              : psychrolib.GetHumRatioFromTWetBulb(td, ref.twb, P);
+        }
+        else if (path === 'enthalpy') {
+          var a0 = psychrolib.GetMoistAirEnthalpy(td, 0);
+          var b0 = psychrolib.GetMoistAirEnthalpy(td, 1) - a0;
+          w = (ref.h - a0) / b0;
+        } else { w = a.w + (b.w - a.w) * f; } // straight: linear in W
+        out.push({ tdb: td, w: clampW(w, td) });
       }
-      out.push(b);
       return out;
     }
 
