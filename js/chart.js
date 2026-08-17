@@ -18,7 +18,13 @@
       tdbTitle: 'Dry-bulb temperature (°F)',
       wTitle: 'Humidity ratio (lbₕ₂ₒ / lbₐ)',
       wbList: [40, 50, 60, 70, 80],
-      wbUnit: '°F'
+      wbUnit: '°F',
+      // enthalpy line values in the native psychrolib unit (Btu/lb),
+      // hScale converts to the label value (Btu/lb -> Btu/lb here)
+      hList: [15, 20, 25, 30, 35, 40, 45],
+      hScale: 1, hDecimals: 0, hUnit: 'Btu/lb',
+      tdpList: [40, 50, 60, 70, 80],
+      tdpUnit: '°F'
     },
     SI: {
       tdbMin: 0, tdbMax: 50, tdbStep: 5,
@@ -27,7 +33,12 @@
       tdbTitle: 'Dry-bulb temperature (°C)',
       wTitle: 'Humidity ratio (gₕ₂ₒ / kgₐ)',
       wbList: [5, 10, 15, 20, 25, 30],
-      wbUnit: '°C'
+      wbUnit: '°C',
+      // enthalpy values in native psychrolib SI unit (J/kg); label in kJ/kg
+      hList: [20000, 40000, 60000, 80000, 100000],
+      hScale: 0.001, hDecimals: 0, hUnit: 'kJ/kg',
+      tdpList: [5, 10, 15, 20, 25],
+      tdpUnit: '°C'
     }
   };
 
@@ -50,7 +61,8 @@
     var P = opts.pressure;
     var points = opts.points || [];
     var show = Object.assign(
-      { grid: true, rh: true, wetbulb: true, axisLabels: true, pointLabels: true },
+      { dryBulbAxis: true, humidityAxis: true, rh: true, wetbulb: true,
+        enthalpy: false, dewpoint: false, grid: false },
       opts.show || {}
     );
 
@@ -72,21 +84,50 @@
     var svg = [];
     svg.push('<svg class="chart-svg" viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Psychrometric chart">');
 
-    // --- Grid: vertical dry-bulb lines + ticks ---
+    // --- Grid + dry-bulb ticks (vertical) ---
     for (var t = cfg.tdbMin; t <= cfg.tdbMax + 1e-6; t += cfg.tdbStep) {
       var xg = sx(t);
       if (show.grid) svg.push('<line class="grid-line" x1="' + xg + '" y1="' + y0 + '" x2="' + xg + '" y2="' + (y0 + plotH) + '"/>');
-      if (show.axisLabels) svg.push('<text class="axis-label" x="' + xg + '" y="' + (y0 + plotH + 16) + '" text-anchor="middle">' + fmt(t, 0) + '</text>');
+      if (show.dryBulbAxis) svg.push('<text class="axis-label" x="' + xg + '" y="' + (y0 + plotH + 16) + '" text-anchor="middle">' + fmt(t, 0) + '</text>');
     }
-    // --- Grid: horizontal humidity-ratio lines + ticks ---
+    // --- Grid + humidity-ratio ticks (horizontal) ---
     for (var w = 0; w <= cfg.wMax + 1e-9; w += cfg.wStep) {
       var yg = sy(w);
       if (show.grid) svg.push('<line class="grid-line" x1="' + x0 + '" y1="' + yg + '" x2="' + (x0 + plotW) + '" y2="' + yg + '"/>');
-      if (show.axisLabels) {
+      if (show.humidityAxis) {
         var wLabel = fmt(w * cfg.wScale, cfg.wDecimals);
         svg.push('<text class="axis-label" x="' + (x0 + plotW + 8) + '" y="' + (yg + 3) + '" text-anchor="start">' + wLabel + '</text>');
       }
     }
+
+    // --- Constant dew-point lines (horizontal, off the saturation curve) ---
+    if (show.dewpoint) cfg.tdpList.forEach(function (tdp) {
+      if (tdp <= cfg.tdbMin || tdp >= cfg.tdbMax) return;
+      var wv = psychrolib.GetSatHumRatio(tdp, P);
+      if (wv > cfg.wMax) return;
+      var y = sy(wv), xStart = sx(tdp);
+      svg.push('<line class="dp-line" x1="' + xStart + '" y1="' + y + '" x2="' + (x0 + plotW) + '" y2="' + y + '"/>');
+      svg.push('<text class="dp-label" x="' + (xStart + 3) + '" y="' + (y - 2) + '">' + tdp + cfg.tdpUnit + ' dp</text>');
+    });
+
+    // --- Constant enthalpy lines (straight, near-parallel to wet-bulb) ---
+    if (show.enthalpy) cfg.hList.forEach(function (h) {
+      var pts = [];
+      for (var td = cfg.tdbMin; td <= cfg.tdbMax + 1e-6; td += 2) {
+        var a = psychrolib.GetMoistAirEnthalpy(td, 0);           // enthalpy at W=0
+        var b = psychrolib.GetMoistAirEnthalpy(td, 1) - a;       // slope per unit W
+        var wv = (h - a) / b;
+        if (wv < 0 || wv > cfg.wMax) continue;
+        if (wv > psychrolib.GetSatHumRatio(td, P) + 1e-9) continue; // stay below saturation
+        pts.push(sx(td) + ',' + sy(wv));
+      }
+      if (pts.length > 1) {
+        svg.push('<polyline class="enth-line" points="' + pts.join(' ') + '"/>');
+        var top = pts[pts.length - 1].split(',');
+        svg.push('<text class="enth-label" x="' + (parseFloat(top[0]) - 2) + '" y="' + (parseFloat(top[1]) - 2) + '" text-anchor="end">' +
+          fmt(h * cfg.hScale, cfg.hDecimals) + ' ' + cfg.hUnit + '</text>');
+      }
+    });
 
     // --- Constant wet-bulb lines (dashed) ---
     if (show.wetbulb) cfg.wbList.forEach(function (twb) {
@@ -143,8 +184,10 @@
     svg.push('<line class="axis-line" x1="' + (x0 + plotW) + '" y1="' + y0 + '" x2="' + (x0 + plotW) + '" y2="' + (y0 + plotH) + '"/>');
 
     // --- Axis titles ---
-    if (show.axisLabels) {
+    if (show.dryBulbAxis) {
       svg.push('<text class="axis-title" x="' + (x0 + plotW / 2) + '" y="' + (H - 12) + '" text-anchor="middle">' + esc(cfg.tdbTitle) + '</text>');
+    }
+    if (show.humidityAxis) {
       svg.push('<text class="axis-title" x="' + (W - 6) + '" y="' + (y0 - 10) + '" text-anchor="end">' + esc(cfg.wTitle) + '</text>');
     }
 
@@ -154,10 +197,8 @@
       if (p.tdb < cfg.tdbMin || p.tdb > cfg.tdbMax || p.w < 0 || p.w > cfg.wMax) return;
       var px = sx(p.tdb), py = sy(p.w);
       svg.push('<circle class="pt-marker" cx="' + px + '" cy="' + py + '" r="5"/>');
-      if (show.pointLabels) {
-        var lbl = p.label ? p.label : ('P' + p.id);
-        svg.push('<text class="pt-label" x="' + (px + 8) + '" y="' + (py - 6) + '">' + esc(lbl) + '</text>');
-      }
+      var lbl = p.label ? p.label : ('P' + p.id);   // point labels are always shown
+      svg.push('<text class="pt-label" x="' + (px + 8) + '" y="' + (py - 6) + '">' + esc(lbl) + '</text>');
     });
 
     svg.push('</svg>');

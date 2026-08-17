@@ -17,12 +17,15 @@ no database, and no data ever leaves your machine.**
   calculated automatically.
 - **IP ⇄ SI toggle** — switch unit systems at any time; plotted points keep their
   physical state and all values re-express in the new units.
-- **Elevation / barometric pressure** — defaults to sea level; enter any elevation
-  and the standard atmospheric pressure updates accordingly.
+- **Elevation _or_ pressure** — defaults to sea level; edit either field and the
+  other updates via the standard atmosphere.
+- **Configurable chart** — toggle the dry-bulb axis, humidity-ratio axis, RH,
+  wet-bulb, enthalpy, and dew-point lines, and a background grid, on or off.
+- **Light / dark themes.**
 - **Property table** — dry-bulb, wet-bulb, dew-point, RH, humidity ratio,
   enthalpy, and specific volume for each point.
-- **On-device autosave** — your points are remembered in the browser between
-  visits (via `localStorage`), never transmitted anywhere.
+- **On-device autosave** — your points and preferences are remembered in the
+  browser between visits (via `localStorage`), never transmitted anywhere.
 
 ## Roadmap (planned)
 

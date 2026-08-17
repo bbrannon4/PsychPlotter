@@ -14,6 +14,8 @@
   --sat: #6fb3ff;
   --rh: #3d6b9e;
   --wb: #4f9d7a;
+  --enth: #c98bdb;
+  --dp: #b0895f;
   --pt: #ffb454;
   --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
@@ -34,6 +36,8 @@
   --sat: #2b7fd4;
   --rh: #7a9ec4;
   --wb: #5aa384;
+  --enth: #a05fc0;
+  --dp: #9a6b3f;
   --pt: #e08a1e;
 }
 
@@ -181,6 +185,10 @@ table.points td.label-cell, table.points th.label-cell { text-align: left; }
 .sat-curve { fill: none; stroke: var(--sat); stroke-width: 2; }
 .rh-line { fill: none; stroke: var(--rh); stroke-width: 1; }
 .wb-line { fill: none; stroke: var(--wb); stroke-width: 0.8; stroke-dasharray: 4 3; opacity: 0.7; }
+.enth-line { fill: none; stroke: var(--enth); stroke-width: 0.8; opacity: 0.75; }
+.enth-label { fill: var(--enth); font-size: 9px; font-family: var(--font); }
+.dp-line { fill: none; stroke: var(--dp); stroke-width: 0.8; stroke-dasharray: 2 3; opacity: 0.7; }
+.dp-label { fill: var(--dp); font-size: 9px; font-family: var(--font); }
 .axis-label { fill: var(--muted); font-size: 11px; font-family: var(--font); }
 .axis-title { fill: var(--text); font-size: 12px; font-family: var(--font); font-weight: 600; }
 .curve-label { fill: var(--rh); font-size: 10px; font-family: var(--font); }

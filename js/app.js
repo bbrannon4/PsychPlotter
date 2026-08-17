@@ -23,8 +23,11 @@
   var state = {
     unit: IP,
     pressurePa: P0,
-    theme: 'dark',
-    show: { grid: true, rh: true, wetbulb: true, axisLabels: true, pointLabels: true },
+    theme: 'light',
+    show: {
+      dryBulbAxis: true, humidityAxis: true, rh: true, wetbulb: true,
+      enthalpy: false, dewpoint: false, grid: false
+    },
     points: [],
     nextId: 1
   };
@@ -92,7 +95,7 @@
      'point-form', 'pt-label', 'pt-tdb', 'pt-prop2', 'pt-prop2val',
      'lbl-tdb-unit', 'lbl-prop2-name', 'lbl-prop2-unit', 'form-error',
      'points-table-wrap', 'clear-all', 'chart-container',
-     'opt-grid', 'opt-rh', 'opt-wb', 'opt-axis', 'opt-ptlabels'
+     'opt-tdb-axis', 'opt-w-axis', 'opt-rh', 'opt-wb', 'opt-enth', 'opt-dp', 'opt-grid'
     ].forEach(function (id) { el[id] = document.getElementById(id); });
   }
 
@@ -309,11 +312,13 @@
 
   // ---- display options ----------------------------------------------------
   function syncOptionInputs() {
-    el['opt-grid'].checked = state.show.grid;
+    el['opt-tdb-axis'].checked = state.show.dryBulbAxis;
+    el['opt-w-axis'].checked = state.show.humidityAxis;
     el['opt-rh'].checked = state.show.rh;
     el['opt-wb'].checked = state.show.wetbulb;
-    el['opt-axis'].checked = state.show.axisLabels;
-    el['opt-ptlabels'].checked = state.show.pointLabels;
+    el['opt-enth'].checked = state.show.enthalpy;
+    el['opt-dp'].checked = state.show.dewpoint;
+    el['opt-grid'].checked = state.show.grid;
   }
   function wireOption(id, key) {
     el[id].addEventListener('change', function () {
@@ -363,11 +368,13 @@
       renderTable();
     });
 
-    wireOption('opt-grid', 'grid');
+    wireOption('opt-tdb-axis', 'dryBulbAxis');
+    wireOption('opt-w-axis', 'humidityAxis');
     wireOption('opt-rh', 'rh');
     wireOption('opt-wb', 'wetbulb');
-    wireOption('opt-axis', 'axisLabels');
-    wireOption('opt-ptlabels', 'pointLabels');
+    wireOption('opt-enth', 'enthalpy');
+    wireOption('opt-dp', 'dewpoint');
+    wireOption('opt-grid', 'grid');
     wireTabs();
 
     // reflect loaded state into the UI
