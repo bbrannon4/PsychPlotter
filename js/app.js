@@ -30,7 +30,16 @@
       enthalpy: false, dewpoint: false, grid: false
     },
     points: [],
-    nextId: 1
+    nextId: 1,
+    processes: [],       // {id, name, pointIds:[], closed, paths:{segIndex:type}}
+    nextProcessId: 1
+  };
+
+  var stagingIds = [];   // point ids being assembled into a new process
+  var PATH_TYPES = ['straight', 'saturation', 'wetbulb', 'enthalpy'];
+  var PATH_LABELS = {
+    straight: 'Straight', saturation: 'Along saturation',
+    wetbulb: 'Along wet-bulb', enthalpy: 'Along enthalpy'
   };
 
   // ---- unit helpers -------------------------------------------------------
@@ -96,7 +105,9 @@
      'point-form', 'pt-label', 'pt-tdb', 'pt-prop2', 'pt-prop2val',
      'lbl-tdb-unit', 'lbl-prop2-name', 'lbl-prop2-unit', 'form-error',
      'points-table-wrap', 'clear-all', 'chart-container',
-     'opt-tdb-axis', 'opt-w-axis', 'opt-rh', 'opt-wb', 'opt-enth', 'opt-dp', 'opt-grid'
+     'opt-tdb-axis', 'opt-w-axis', 'opt-rh', 'opt-wb', 'opt-enth', 'opt-dp', 'opt-grid',
+     'proc-name', 'proc-add-point', 'proc-staging', 'proc-closed', 'proc-add',
+     'proc-clear-staging', 'proc-error', 'processes-wrap'
     ].forEach(function (id) { el[id] = document.getElementById(id); });
   }
 
@@ -137,8 +148,165 @@
       unitSystem: state.unit,
       pressure: pressureInUnit(state.pressurePa, state.unit),
       points: pts,
+      processes: resolvedProcessesForChart(),
       show: state.show
     });
+  }
+
+  // ---- processes ----------------------------------------------------------
+  function pointById(id) {
+    for (var i = 0; i < state.points.length; i++) {
+      if (state.points[i].id === id) return state.points[i];
+    }
+    return null;
+  }
+  function ptTdb(p) { return state.unit === IP ? cToF(p.tdbC) : p.tdbC; }
+  function pointName(p) { return p.label ? ('P' + p.id + ' ' + p.label) : ('P' + p.id); }
+  function pointShort(p) { return 'P' + p.id; }
+
+  // Ordered segment descriptors for a process (handles the closing segment).
+  function segmentsOf(proc) {
+    var ids = proc.pointIds, n = ids.length;
+    var count = proc.closed ? n : n - 1;
+    var segs = [];
+    for (var i = 0; i < count; i++) {
+      segs.push({
+        index: i, aId: ids[i], bId: ids[(i + 1) % n],
+        path: (proc.paths && proc.paths[i]) || 'straight'
+      });
+    }
+    return segs;
+  }
+
+  function resolvedProcessesForChart() {
+    return state.processes.map(function (proc) {
+      var segs = segmentsOf(proc).map(function (s) {
+        var pa = pointById(s.aId), pb = pointById(s.bId);
+        if (!pa || !pb) return null;
+        return { a: { tdb: ptTdb(pa), w: pa.w }, b: { tdb: ptTdb(pb), w: pb.w }, path: s.path };
+      }).filter(Boolean);
+      return { name: proc.name, segments: segs };
+    }).filter(function (p) { return p.segments.length; });
+  }
+
+  function renderProcessBuilder() {
+    // point picker
+    var opts = ['<option value="">Add point…</option>'];
+    state.points.forEach(function (p) {
+      opts.push('<option value="' + p.id + '">' + escapeHtml(pointName(p)) + '</option>');
+    });
+    el['proc-add-point'].innerHTML = opts.join('');
+    el['proc-add-point'].disabled = state.points.length === 0;
+
+    // staging sequence
+    if (stagingIds.length === 0) {
+      el['proc-staging'].innerHTML = '<span class="hint">No points added yet.</span>';
+    } else {
+      var chips = stagingIds.map(function (id, i) {
+        var p = pointById(id);
+        var name = p ? escapeHtml(pointShort(p)) : ('#' + id);
+        return (i > 0 ? '<span class="proc-sep">→</span>' : '') +
+          '<span class="proc-chip">' + name +
+          '<span class="x" data-idx="' + i + '" title="Remove">×</span></span>';
+      }).join('');
+      el['proc-staging'].innerHTML = chips;
+      Array.prototype.forEach.call(el['proc-staging'].querySelectorAll('.x'), function (x) {
+        x.addEventListener('click', function () {
+          stagingIds.splice(parseInt(x.getAttribute('data-idx'), 10), 1);
+          renderProcessBuilder();
+        });
+      });
+    }
+    el['proc-add'].disabled = stagingIds.length < 2;
+  }
+
+  function renderProcessList() {
+    var wrap = el['processes-wrap'];
+    if (state.processes.length === 0) {
+      wrap.innerHTML = '<p class="hint">No processes yet.</p>';
+      return;
+    }
+    var html = state.processes.map(function (proc) {
+      var seq = proc.pointIds.map(function (id) {
+        var p = pointById(id); return p ? escapeHtml(pointShort(p)) : ('#' + id);
+      });
+      if (proc.closed && seq.length) seq = seq.concat([seq[0]]);
+      var title = proc.name ? escapeHtml(proc.name) : ('Process ' + proc.id);
+
+      var segRows = segmentsOf(proc).map(function (s) {
+        var pa = pointById(s.aId), pb = pointById(s.bId);
+        var lbl = (pa ? pointShort(pa) : '?') + ' → ' + (pb ? pointShort(pb) : '?');
+        var options = PATH_TYPES.map(function (t) {
+          return '<option value="' + t + '"' + (t === s.path ? ' selected' : '') + '>' + PATH_LABELS[t] + '</option>';
+        }).join('');
+        return '<div class="seg-row"><span class="seg-label">' + lbl + '</span>' +
+          '<select data-proc="' + proc.id + '" data-seg="' + s.index + '">' + options + '</select></div>';
+      }).join('');
+
+      return '<div class="proc-item">' +
+        '<div class="proc-item-head">' +
+          '<span class="proc-item-name"><span class="dot"></span>' + title + '</span>' +
+          '<button class="row-del" data-proc="' + proc.id + '" title="Remove">×</button>' +
+        '</div>' +
+        '<div class="proc-seq hint">' + seq.join(' → ') + '</div>' +
+        segRows +
+      '</div>';
+    }).join('');
+    wrap.innerHTML = html;
+
+    Array.prototype.forEach.call(wrap.querySelectorAll('.row-del'), function (b) {
+      b.addEventListener('click', function () {
+        var id = parseInt(b.getAttribute('data-proc'), 10);
+        state.processes = state.processes.filter(function (p) { return p.id !== id; });
+        save(); renderProcessList(); renderChart();
+      });
+    });
+    Array.prototype.forEach.call(wrap.querySelectorAll('select[data-seg]'), function (sel) {
+      sel.addEventListener('change', function () {
+        var pid = parseInt(sel.getAttribute('data-proc'), 10);
+        var idx = parseInt(sel.getAttribute('data-seg'), 10);
+        var proc = state.processes.filter(function (p) { return p.id === pid; })[0];
+        if (!proc) return;
+        if (!proc.paths) proc.paths = {};
+        proc.paths[idx] = sel.value;
+        save(); renderChart();
+      });
+    });
+  }
+
+  function addProcess() {
+    el['proc-error'].textContent = '';
+    if (stagingIds.length < 2) {
+      el['proc-error'].textContent = 'Add at least two points to form a process.';
+      return;
+    }
+    state.processes.push({
+      id: state.nextProcessId++,
+      name: el['proc-name'].value.trim(),
+      pointIds: stagingIds.slice(),
+      closed: el['proc-closed'].checked,
+      paths: {}
+    });
+    stagingIds = [];
+    el['proc-name'].value = '';
+    el['proc-closed'].checked = false;
+    save();
+    renderProcessBuilder();
+    renderProcessList();
+    renderChart();
+  }
+
+  // Remove a point and any process references to it (paths reset on structural change).
+  function removePoint(id) {
+    state.points = state.points.filter(function (p) { return p.id !== id; });
+    stagingIds = stagingIds.filter(function (sid) { return sid !== id; });
+    state.processes = state.processes.map(function (proc) {
+      proc.pointIds = proc.pointIds.filter(function (pid) { return pid !== id; });
+      proc.paths = {};
+      return proc;
+    }).filter(function (proc) { return proc.pointIds.length >= 2; });
+    save();
+    renderAll();
   }
 
   function renderTable() {
@@ -179,9 +347,7 @@
 
     Array.prototype.forEach.call(wrap.querySelectorAll('.row-del'), function (b) {
       b.addEventListener('click', function () {
-        var id = parseInt(b.getAttribute('data-id'), 10);
-        state.points = state.points.filter(function (p) { return p.id !== id; });
-        save(); renderChart(); renderTable();
+        removePoint(parseInt(b.getAttribute('data-id'), 10));
       });
     });
   }
@@ -191,6 +357,8 @@
     refreshPressureFields();
     renderChart();
     renderTable();
+    renderProcessBuilder();
+    renderProcessList();
   }
 
   function escapeHtml(s) {
@@ -251,6 +419,7 @@
     save();
     renderChart();
     renderTable();
+    renderProcessBuilder();
   }
 
   // ---- persistence (on-device only) --------------------------------------
@@ -259,7 +428,8 @@
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         unit: state.unit, pressurePa: state.pressurePa,
         theme: state.theme, themeExplicit: state.themeExplicit,
-        show: state.show, points: state.points, nextId: state.nextId
+        show: state.show, points: state.points, nextId: state.nextId,
+        processes: state.processes, nextProcessId: state.nextProcessId
       }));
     } catch (e) { /* storage unavailable — ignore */ }
   }
@@ -279,6 +449,8 @@
       if (d.show) Object.assign(state.show, d.show);
       if (Array.isArray(d.points)) state.points = d.points;
       if (typeof d.nextId === 'number') state.nextId = d.nextId;
+      if (Array.isArray(d.processes)) state.processes = d.processes;
+      if (typeof d.nextProcessId === 'number') state.nextProcessId = d.nextProcessId;
     } catch (e) { /* ignore corrupt storage */ }
   }
 
@@ -344,7 +516,7 @@
         Array.prototype.forEach.call(tabs, function (t) {
           t.classList.toggle('active', t === tab);
         });
-        ['points', 'processes', 'import'].forEach(function (n) {
+        ['points', 'import'].forEach(function (n) {
           document.getElementById('tab-' + n).classList.toggle('hidden', n !== name);
         });
       });
@@ -367,12 +539,29 @@
     el['pt-prop2'].addEventListener('change', refreshUnitLabels);
     el['point-form'].addEventListener('submit', addPoint);
 
+    el['proc-add-point'].addEventListener('change', function () {
+      var v = parseInt(el['proc-add-point'].value, 10);
+      if (!isNaN(v)) stagingIds.push(v);
+      el['proc-add-point'].value = '';
+      el['proc-error'].textContent = '';
+      renderProcessBuilder();
+    });
+    el['proc-add'].addEventListener('click', addProcess);
+    el['proc-clear-staging'].addEventListener('click', function () {
+      stagingIds = [];
+      el['proc-name'].value = '';
+      el['proc-closed'].checked = false;
+      el['proc-error'].textContent = '';
+      renderProcessBuilder();
+    });
+
     el['clear-all'].addEventListener('click', function () {
-      if (state.points.length && !confirm('Remove all points?')) return;
+      if (state.points.length && !confirm('Remove all points and processes?')) return;
       state.points = [];
+      state.processes = [];
+      stagingIds = [];
       save();
-      renderChart();
-      renderTable();
+      renderAll();
     });
 
     wireOption('opt-tdb-axis', 'dryBulbAxis');

@@ -17,6 +17,7 @@
   --enth: #c98bdb;
   --dp: #b0895f;
   --pt: #ffb454;
+  --proc: #ff5c72;
   --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
@@ -39,6 +40,7 @@
   --enth: #a05fc0;
   --dp: #9a6b3f;
   --pt: #e08a1e;
+  --proc: #d6273e;
 }
 
 * { box-sizing: border-box; }
@@ -194,6 +196,9 @@ table.points td.label-cell, table.points th.label-cell { text-align: left; }
 .wb-label { fill: var(--wb); font-size: 9px; font-family: var(--font); }
 .pt-marker { fill: var(--pt); stroke: var(--chart-bg); stroke-width: 1.5; }
 .pt-label { fill: var(--text); font-size: 11px; font-family: var(--font); font-weight: 600; paint-order: stroke; stroke: var(--chart-bg); stroke-width: 3px; }
+.proc-line { stroke: var(--proc); stroke-width: 1.8; fill: none; }
+.proc-arrow-head { fill: var(--proc); }
+.proc-label { fill: var(--proc); font-size: 10px; font-family: var(--font); font-weight: 600; paint-order: stroke; stroke: var(--chart-bg); stroke-width: 3px; }
 
 /* Tabs */
 .tabs { display: flex; gap: 4px; margin-bottom: 4px; }
@@ -209,6 +214,30 @@ table.points td.label-cell, table.points th.label-cell { text-align: left; }
 .tab-panel.hidden { display: none; }
 .opt-tag { font-style: normal; color: var(--muted); font-weight: 400; }
 .placeholder-text { color: var(--muted); font-size: 12px; line-height: 1.5; margin: 8px 0 12px; }
+
+/* Process builder */
+.proc-staging { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-height: 30px; }
+.proc-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--panel-2); border: 1px solid var(--border);
+  border-radius: 6px; padding: 3px 4px 3px 8px; font-size: 12px; font-weight: 600;
+}
+.proc-chip .x { cursor: pointer; color: var(--muted); font-size: 14px; line-height: 1; padding: 0 2px; }
+.proc-chip .x:hover { color: var(--danger); }
+.proc-sep { color: var(--muted); }
+.proc-add-row { display: flex; gap: 10px; align-items: center; margin: 12px 0; flex-wrap: wrap; }
+.proc-add-row select { flex: 1; min-width: 130px; }
+.inline-check { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); white-space: nowrap; }
+
+/* Process list */
+.proc-item { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 12px; }
+.proc-item:first-child { border-top: 0; padding-top: 0; margin-top: 0; }
+.proc-item-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.proc-item-name { font-weight: 600; font-size: 13px; }
+.proc-item-name .dot { display: inline-block; width: 10px; height: 3px; background: var(--proc); border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+.seg-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 12px; }
+.seg-label { color: var(--muted); white-space: nowrap; min-width: 78px; }
+.seg-row select { flex: 1; padding: 4px 6px; font-size: 12px; }
 
 /* Chart display options */
 .chart-options {

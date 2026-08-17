@@ -83,6 +83,7 @@
 
     var svg = [];
     svg.push('<svg class="chart-svg" viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Psychrometric chart">');
+    svg.push('<defs><marker id="proc-arrow" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L7,3 L0,6 Z" class="proc-arrow-head"/></marker></defs>');
 
     // --- Grid + dry-bulb ticks (vertical) ---
     for (var t = cfg.tdbMin; t <= cfg.tdbMax + 1e-6; t += cfg.tdbStep) {
@@ -190,6 +191,54 @@
     if (show.humidityAxis) {
       svg.push('<text class="axis-title" x="' + (W - 6) + '" y="' + (y0 - 10) + '" text-anchor="end">' + esc(cfg.wTitle) + '</text>');
     }
+
+    // --- Process lines (drawn before points so markers sit on top) ---
+    function familyW(path, tdb, ref) {
+      var w;
+      if (path === 'saturation') {
+        w = psychrolib.GetSatHumRatio(tdb, P);
+      } else if (path === 'wetbulb') {
+        w = psychrolib.GetHumRatioFromTWetBulb(tdb, ref.twb, P);
+      } else { // enthalpy
+        var a0 = psychrolib.GetMoistAirEnthalpy(tdb, 0);
+        var b0 = psychrolib.GetMoistAirEnthalpy(tdb, 1) - a0;
+        w = (ref.h - a0) / b0;
+      }
+      if (w < 0) w = 0;
+      if (w > cfg.wMax) w = cfg.wMax;
+      return w;
+    }
+    function sampleSegment(a, b, path) {
+      if (path !== 'saturation' && path !== 'wetbulb' && path !== 'enthalpy') {
+        return [a, b];
+      }
+      var ref = {
+        twb: psychrolib.GetTWetBulbFromHumRatio(a.tdb, a.w, P),
+        h: psychrolib.GetMoistAirEnthalpy(a.tdb, a.w)
+      };
+      var N = 24, out = [a];
+      for (var i = 1; i < N; i++) {
+        var td = a.tdb + (b.tdb - a.tdb) * i / N;
+        out.push({ tdb: td, w: familyW(path, td, ref) });
+      }
+      out.push(b);
+      return out;
+    }
+
+    (opts.processes || []).forEach(function (proc) {
+      var segs = proc.segments || [];
+      segs.forEach(function (seg) {
+        var pts = sampleSegment(seg.a, seg.b, seg.path).map(function (q) {
+          return sx(q.tdb) + ',' + sy(q.w);
+        });
+        svg.push('<polyline class="proc-line" points="' + pts.join(' ') + '" marker-end="url(#proc-arrow)"/>');
+      });
+      if (proc.name && segs.length) {
+        var a = segs[0].a, b = segs[0].b;
+        var mx = (sx(a.tdb) + sx(b.tdb)) / 2, my = (sy(a.w) + sy(b.w)) / 2;
+        svg.push('<text class="proc-label" x="' + mx + '" y="' + (my - 5) + '" text-anchor="middle">' + esc(proc.name) + '</text>');
+      }
+    });
 
     // --- Plotted points ---
     points.forEach(function (p) {

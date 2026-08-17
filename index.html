@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>PsychPlotter</title>
-  <link rel="stylesheet" href="css/styles.css?v=3" />
+  <link rel="stylesheet" href="css/styles.css?v=4" />
 </head>
 <body>
   <header class="app-header">
@@ -50,12 +50,11 @@
 
     <aside class="side-panel">
       <div class="tabs" role="tablist">
-        <button class="tab active" data-tab="points" role="tab" type="button">Points</button>
-        <button class="tab" data-tab="processes" role="tab" type="button">Processes</button>
+        <button class="tab active" data-tab="points" role="tab" type="button">Points &amp; Processes</button>
         <button class="tab" data-tab="import" role="tab" type="button">Import</button>
       </div>
 
-      <!-- POINTS TAB -->
+      <!-- POINTS & PROCESSES TAB -->
       <div class="tab-panel" id="tab-points" role="tabpanel">
         <div class="card">
           <h2>Add a point</h2>
@@ -101,19 +100,35 @@
             <p id="empty-msg" class="hint">No points yet.</p>
           </div>
         </div>
-      </div>
 
-      <!-- PROCESSES TAB (placeholder) -->
-      <div class="tab-panel hidden" id="tab-processes" role="tabpanel">
+        <div class="card">
+          <h2>Build a process</h2>
+          <p class="hint">Connect existing points in order. Repeat a point to close a
+            cycle; reuse a point in another process to branch.</p>
+          <label class="field">
+            <span>Name <em class="opt-tag">(optional)</em></span>
+            <input id="proc-name" type="text" placeholder="e.g. Cooling coil" maxlength="40" />
+          </label>
+          <div class="field">
+            <span>Sequence</span>
+            <div id="proc-staging" class="proc-staging"><span class="hint">No points added yet.</span></div>
+          </div>
+          <div class="proc-add-row">
+            <select id="proc-add-point"><option value="">Add point…</option></select>
+            <label class="inline-check"><input type="checkbox" id="proc-closed" /> Close loop</label>
+          </div>
+          <div class="form-actions">
+            <button type="button" id="proc-add" class="btn primary" disabled>Add process</button>
+            <button type="button" id="proc-clear-staging" class="btn small ghost">Reset</button>
+          </div>
+          <p id="proc-error" class="form-error" role="alert"></p>
+        </div>
+
         <div class="card">
           <h2>Processes</h2>
-          <p class="hint">Coming soon.</p>
-          <p class="placeholder-text">
-            Connect two plotted points into a process line — heating, cooling,
-            humidification, or mixing — drawn on the chart above with its
-            sensible / latent heat breakdown. Points and processes share this
-            same chart, so nothing to switch between.
-          </p>
+          <div id="processes-wrap">
+            <p class="hint">No processes yet.</p>
+          </div>
         </div>
       </div>
 
@@ -139,8 +154,8 @@
     <span>Psychrometrics via <a href="https://github.com/psychrometrics/psychrolib" target="_blank" rel="noopener">PsychroLib</a> (ASHRAE 2017, MIT).</span>
   </footer>
 
-  <script src="js/psychrolib.js?v=3"></script>
-  <script src="js/chart.js?v=3"></script>
-  <script src="js/app.js?v=3"></script>
+  <script src="js/psychrolib.js?v=4"></script>
+  <script src="js/chart.js?v=4"></script>
+  <script src="js/app.js?v=4"></script>
 </body>
 </html>

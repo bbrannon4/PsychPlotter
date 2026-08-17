@@ -15,6 +15,11 @@ no database, and no data ever leaves your machine.**
 - **Plot state points** — enter dry-bulb temperature plus **one** other property
   (relative humidity, wet-bulb, or dew-point) and every remaining property is
   calculated automatically.
+- **Processes** — connect points into a process (a line, a multi-point string, a
+  branch, or a closed cycle) by referencing existing points, so each state is
+  defined and labelled only once. Each segment can be drawn **straight** or
+  traced **along the saturation curve, a constant wet-bulb line, or a constant
+  enthalpy line** for cooling-below-dew-point and evaporative processes.
 - **IP ⇄ SI toggle** — switch unit systems at any time; plotted points keep their
   physical state and all values re-express in the new units.
 - **Elevation _or_ pressure** — defaults to sea level; edit either field and the
@@ -29,8 +34,8 @@ no database, and no data ever leaves your machine.**
 
 ## Roadmap (planned)
 
-- **Processes** — connect points into heating/cooling/humidification/mixing
-  processes with sensible/latent breakdowns.
+- **Process heat breakdown** — per-segment sensible / latent / total heat and
+  sensible heat ratio (SHR).
 - **Data import** — plot bulk data from **CSV** and **EPW** (EnergyPlus weather)
   files, parsed locally in the browser (scatter and binned-density views).
 - **Project files** — save a project to a small JSON file and re-import it later
