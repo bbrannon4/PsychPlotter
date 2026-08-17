@@ -18,6 +18,7 @@
   --dp: #b0895f;
   --pt: #ffb454;
   --proc: #ff5c72;
+  --wx: #5ec2d6;
   --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
@@ -41,6 +42,7 @@
   --dp: #9a6b3f;
   --pt: #e08a1e;
   --proc: #d6273e;
+  --wx: #2c94ab;
 }
 
 * { box-sizing: border-box; }
@@ -199,6 +201,8 @@ table.points td.label-cell, table.points th.label-cell { text-align: left; }
 .proc-line { stroke: var(--proc); stroke-width: 1.8; fill: none; }
 .proc-arrow-head { fill: var(--proc); }
 .proc-label { fill: var(--proc); font-size: 10px; font-family: var(--font); font-weight: 600; paint-order: stroke; stroke: var(--chart-bg); stroke-width: 3px; }
+.wx-layer { opacity: 0.32; }
+.wx-layer circle { fill: var(--wx); }
 
 /* Tabs */
 .tabs { display: flex; gap: 4px; margin-bottom: 4px; }
@@ -238,6 +242,19 @@ table.points td.label-cell, table.points th.label-cell { text-align: left; }
 .seg-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 12px; }
 .seg-label { color: var(--muted); white-space: nowrap; min-width: 78px; }
 .seg-row select { flex: 1; padding: 4px 6px; font-size: 12px; }
+
+/* Import tab */
+.file-input { width: 100%; font-size: 12px; color: var(--muted); }
+.file-input::file-selector-button {
+  background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; padding: 6px 10px; margin-right: 10px; cursor: pointer;
+  font-family: inherit; font-size: 12px; font-weight: 600;
+}
+.file-input::file-selector-button:hover { border-color: var(--muted); }
+.epw-status { margin-top: 12px; font-size: 12px; }
+.epw-loaded { color: var(--text); }
+.epw-loaded .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--wx); margin-right: 6px; vertical-align: middle; }
+.epw-error { color: var(--danger); }
 
 /* Chart display options */
 .chart-options {

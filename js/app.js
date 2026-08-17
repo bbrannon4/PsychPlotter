@@ -32,7 +32,8 @@
     points: [],
     nextId: 1,
     processes: [],       // {id, name, pointIds:[], closed, paths:{segIndex:type}}
-    nextProcessId: 1
+    nextProcessId: 1,
+    weather: null        // {name, count, points:[{tdbC,w}]} — session only, not persisted
   };
 
   var stagingIds = [];   // point ids being assembled into a new process
@@ -107,7 +108,8 @@
      'points-table-wrap', 'clear-all', 'chart-container',
      'opt-tdb-axis', 'opt-w-axis', 'opt-rh', 'opt-wb', 'opt-enth', 'opt-dp', 'opt-grid',
      'proc-name', 'proc-add-point', 'proc-staging', 'proc-closed', 'proc-add',
-     'proc-clear-staging', 'proc-error', 'processes-wrap'
+     'proc-clear-staging', 'proc-error', 'processes-wrap',
+     'epw-input', 'epw-status', 'epw-clear'
     ].forEach(function (id) { el[id] = document.getElementById(id); });
   }
 
@@ -149,6 +151,9 @@
       pressure: pressureInUnit(state.pressurePa, state.unit),
       points: pts,
       processes: resolvedProcessesForChart(),
+      weather: state.weather ? state.weather.points.map(function (p) {
+        return { tdb: state.unit === IP ? cToF(p.tdbC) : p.tdbC, w: p.w };
+      }) : [],
       show: state.show
     });
   }
@@ -309,6 +314,67 @@
     renderAll();
   }
 
+  // ---- EPW weather import (parsed locally; never uploaded, never persisted) ----
+  // EPW = comma-delimited: 8 header lines, then 8760 hourly rows. Data columns:
+  //   6 dry-bulb °C, 7 dew-point °C, 8 RH %, 9 station pressure Pa.
+  function parseEPW(text, filename) {
+    try {
+      var lines = text.split(/\r?\n/);
+      if (!lines.length || lines[0].slice(0, 8).toUpperCase() !== 'LOCATION') {
+        setImportError('This doesn’t look like an EPW file (missing LOCATION header).');
+        return;
+      }
+      var loc = lines[0].split(',');
+      var city = (loc[1] || '').trim() || 'Weather file';
+
+      psychrolib.SetUnitSystem(psychrolib.SI);
+      var pts = [], skipped = 0;
+      for (var i = 8; i < lines.length; i++) {
+        var line = lines[i];
+        if (!line) continue;
+        var f = line.split(',');
+        if (f.length < 10) continue;
+        var tdb = parseFloat(f[6]), tdp = parseFloat(f[7]);
+        var rh = parseFloat(f[8]), pr = parseFloat(f[9]);
+        if (!isFinite(tdb) || tdb <= -60 || tdb >= 70) { skipped++; continue; } // EPW missing = 99.9
+        var P = (isFinite(pr) && pr >= 30000 && pr <= 120000) ? pr : state.pressurePa;
+        var w = null;
+        try {
+          if (isFinite(rh) && rh > 0 && rh <= 100) {
+            w = psychrolib.GetHumRatioFromRelHum(tdb, rh / 100, P);
+          } else if (isFinite(tdp) && tdp > -60 && tdp <= tdb) {
+            w = psychrolib.GetHumRatioFromTDewPoint(tdp, P);
+          }
+        } catch (e) { w = null; }
+        if (w !== null && isFinite(w) && w >= 0) pts.push({ tdbC: tdb, w: w });
+        else skipped++;
+      }
+
+      if (!pts.length) { setImportError('No valid hourly data found in this file.'); return; }
+      state.weather = { name: city, count: pts.length, points: pts };
+      renderChart();
+      renderImport();
+    } catch (e) {
+      setImportError('Could not read this file.');
+    }
+  }
+
+  function renderImport() {
+    if (state.weather) {
+      el['epw-status'].innerHTML = '<div class="epw-loaded"><span class="dot"></span>' +
+        '<strong>' + escapeHtml(state.weather.name) + '</strong> — ' +
+        state.weather.count.toLocaleString() + ' hours plotted</div>';
+      el['epw-clear'].hidden = false;
+    } else {
+      el['epw-status'].innerHTML = '';
+      el['epw-clear'].hidden = true;
+    }
+  }
+  function setImportError(msg) {
+    el['epw-status'].innerHTML = '<div class="epw-error">' + escapeHtml(msg) + '</div>';
+    el['epw-clear'].hidden = !state.weather;
+  }
+
   function renderTable() {
     var wrap = el['points-table-wrap'];
     if (state.points.length === 0) {
@@ -359,6 +425,7 @@
     renderTable();
     renderProcessBuilder();
     renderProcessList();
+    renderImport();
   }
 
   function escapeHtml(s) {
@@ -547,6 +614,21 @@
       renderProcessBuilder();
     });
     el['proc-add'].addEventListener('click', addProcess);
+
+    el['epw-input'].addEventListener('change', function () {
+      var file = el['epw-input'].files[0];
+      if (!file) return;
+      el['epw-status'].innerHTML = '<div class="hint">Reading ' + escapeHtml(file.name) + '…</div>';
+      var reader = new FileReader();
+      reader.onload = function (ev) { parseEPW(ev.target.result, file.name); el['epw-input'].value = ''; };
+      reader.onerror = function () { setImportError('Could not read this file.'); };
+      reader.readAsText(file);
+    });
+    el['epw-clear'].addEventListener('click', function () {
+      state.weather = null;
+      renderChart();
+      renderImport();
+    });
     el['proc-clear-staging'].addEventListener('click', function () {
       stagingIds = [];
       el['proc-name'].value = '';

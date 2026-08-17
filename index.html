@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>PsychPlotter</title>
-  <link rel="stylesheet" href="css/styles.css?v=6" />
+  <link rel="stylesheet" href="css/styles.css?v=7" />
 </head>
 <body>
   <header class="app-header">
@@ -132,18 +132,21 @@
         </div>
       </div>
 
-      <!-- IMPORT TAB (placeholder) -->
+      <!-- IMPORT TAB -->
       <div class="tab-panel hidden" id="tab-import" role="tabpanel">
         <div class="card">
-          <h2>Import weather / data</h2>
-          <p class="hint">Coming soon.</p>
-          <p class="placeholder-text">
-            Load an <strong>EPW</strong> (EnergyPlus weather) or <strong>CSV</strong>
-            file and plot its hourly points on the chart — as a scatter or a
-            binned density cloud. Files are parsed locally in your browser and
-            never uploaded anywhere.
-          </p>
-          <button class="btn ghost" type="button" disabled>Choose file…</button>
+          <h2>Import weather data</h2>
+          <p class="hint">Load an <strong>EPW</strong> (EnergyPlus Weather) file to plot
+            its 8,760 hourly conditions on the chart as a density cloud. The file is
+            parsed entirely in your browser — nothing is uploaded.</p>
+          <label class="field">
+            <span>EPW file</span>
+            <input id="epw-input" type="file" accept=".epw" class="file-input" />
+          </label>
+          <div id="epw-status" class="epw-status"></div>
+          <div class="form-actions">
+            <button id="epw-clear" class="btn small ghost" type="button" hidden>Clear weather data</button>
+          </div>
         </div>
       </div>
     </aside>
@@ -154,8 +157,8 @@
     <span>Psychrometrics via <a href="https://github.com/psychrometrics/psychrolib" target="_blank" rel="noopener">PsychroLib</a> (ASHRAE 2017, MIT).</span>
   </footer>
 
-  <script src="js/psychrolib.js?v=6"></script>
-  <script src="js/chart.js?v=6"></script>
-  <script src="js/app.js?v=6"></script>
+  <script src="js/psychrolib.js?v=7"></script>
+  <script src="js/chart.js?v=7"></script>
+  <script src="js/app.js?v=7"></script>
 </body>
 </html>

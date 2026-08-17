@@ -101,6 +101,17 @@
       }
     }
 
+    // --- Weather data cloud (drawn under the reference lines) ---
+    var weather = opts.weather || [];
+    if (weather.length) {
+      var dots = [];
+      weather.forEach(function (p) {
+        if (p.tdb < cfg.tdbMin || p.tdb > cfg.tdbMax || p.w < 0 || p.w > cfg.wMax) return;
+        dots.push('<circle cx="' + sx(p.tdb).toFixed(1) + '" cy="' + sy(p.w).toFixed(1) + '" r="1.4"/>');
+      });
+      svg.push('<g class="wx-layer">' + dots.join('') + '</g>');
+    }
+
     // --- Constant dew-point lines (horizontal, off the saturation curve) ---
     if (show.dewpoint) cfg.tdpList.forEach(function (tdp) {
       if (tdp <= cfg.tdbMin || tdp >= cfg.tdbMax) return;
