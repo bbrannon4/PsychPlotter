@@ -1,0 +1,168 @@
+/*
+ * PsychChart — renders a psychrometric chart as SVG.
+ * Depends on the global `psychrolib` (must have its unit system already set by the caller).
+ *
+ * Coordinate model:
+ *   x-axis  = dry-bulb temperature
+ *   y-axis  = humidity ratio (0 at bottom), drawn/labelled on the right edge
+ */
+(function (global) {
+  'use strict';
+
+  // Chart bounds and tick spacing per unit system.
+  var CONFIG = {
+    IP: {
+      tdbMin: 32, tdbMax: 120, tdbStep: 10,
+      wMax: 0.028, wStep: 0.004,
+      wScale: 1, wDecimals: 3,               // plotted in lb/lb
+      tdbTitle: 'Dry-bulb temperature (°F)',
+      wTitle: 'Humidity ratio (lbₕ₂ₒ / lbₐ)',
+      wbList: [40, 50, 60, 70, 80],
+      wbUnit: '°F'
+    },
+    SI: {
+      tdbMin: 0, tdbMax: 50, tdbStep: 5,
+      wMax: 0.030, wStep: 0.005,
+      wScale: 1000, wDecimals: 0,            // plotted in g/kg
+      tdbTitle: 'Dry-bulb temperature (°C)',
+      wTitle: 'Humidity ratio (gₕ₂ₒ / kgₐ)',
+      wbList: [5, 10, 15, 20, 25, 30],
+      wbUnit: '°C'
+    }
+  };
+
+  var RH_LINES = [10, 20, 30, 40, 50, 60, 70, 80, 90];
+
+  // SVG canvas geometry (viewBox units).
+  var W = 820, H = 560;
+  var M = { top: 26, right: 92, bottom: 56, left: 44 };
+
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  }
+
+  function fmt(n, d) { return n.toFixed(d); }
+
+  function render(container, opts) {
+    var cfg = CONFIG[opts.unitSystem];
+    var P = opts.pressure;
+    var points = opts.points || [];
+    var show = Object.assign(
+      { grid: true, rh: true, wetbulb: true, axisLabels: true, pointLabels: true },
+      opts.show || {}
+    );
+
+    // The grid curves below call psychrolib directly, so pin its unit system
+    // to match this chart (pressure `P` is supplied in these same units).
+    psychrolib.SetUnitSystem(opts.unitSystem === 'IP' ? psychrolib.IP : psychrolib.SI);
+
+    var plotW = W - M.left - M.right;
+    var plotH = H - M.top - M.bottom;
+    var x0 = M.left, y0 = M.top;
+
+    function sx(tdb) {
+      return x0 + (tdb - cfg.tdbMin) / (cfg.tdbMax - cfg.tdbMin) * plotW;
+    }
+    function sy(w) {
+      return y0 + (1 - w / cfg.wMax) * plotH;
+    }
+
+    var svg = [];
+    svg.push('<svg class="chart-svg" viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Psychrometric chart">');
+
+    // --- Grid: vertical dry-bulb lines + ticks ---
+    for (var t = cfg.tdbMin; t <= cfg.tdbMax + 1e-6; t += cfg.tdbStep) {
+      var xg = sx(t);
+      if (show.grid) svg.push('<line class="grid-line" x1="' + xg + '" y1="' + y0 + '" x2="' + xg + '" y2="' + (y0 + plotH) + '"/>');
+      if (show.axisLabels) svg.push('<text class="axis-label" x="' + xg + '" y="' + (y0 + plotH + 16) + '" text-anchor="middle">' + fmt(t, 0) + '</text>');
+    }
+    // --- Grid: horizontal humidity-ratio lines + ticks ---
+    for (var w = 0; w <= cfg.wMax + 1e-9; w += cfg.wStep) {
+      var yg = sy(w);
+      if (show.grid) svg.push('<line class="grid-line" x1="' + x0 + '" y1="' + yg + '" x2="' + (x0 + plotW) + '" y2="' + yg + '"/>');
+      if (show.axisLabels) {
+        var wLabel = fmt(w * cfg.wScale, cfg.wDecimals);
+        svg.push('<text class="axis-label" x="' + (x0 + plotW + 8) + '" y="' + (yg + 3) + '" text-anchor="start">' + wLabel + '</text>');
+      }
+    }
+
+    // --- Constant wet-bulb lines (dashed) ---
+    if (show.wetbulb) cfg.wbList.forEach(function (twb) {
+      if (twb <= cfg.tdbMin || twb >= cfg.tdbMax) return;
+      var pts = [];
+      for (var td = twb; td <= cfg.tdbMax + 1e-6; td += 1) {
+        var wv = psychrolib.GetHumRatioFromTWetBulb(td, twb, P);
+        if (wv < 0) wv = 0;
+        if (wv > cfg.wMax) continue;
+        pts.push(sx(td) + ',' + sy(wv));
+      }
+      if (pts.length > 1) {
+        svg.push('<polyline class="wb-line" points="' + pts.join(' ') + '"/>');
+        var first = pts[0].split(',');
+        svg.push('<text class="wb-label" x="' + (parseFloat(first[0]) + 2) + '" y="' + (parseFloat(first[1]) - 2) + '">' + twb + cfg.wbUnit + ' wb</text>');
+      }
+    });
+
+    // --- Relative-humidity curves ---
+    if (show.rh) RH_LINES.forEach(function (rh) {
+      var frac = rh / 100;
+      var pts = [];
+      var last = null;
+      for (var td = cfg.tdbMin; td <= cfg.tdbMax + 1e-6; td += 1) {
+        var wv = psychrolib.GetHumRatioFromRelHum(td, frac, P);
+        if (wv > cfg.wMax) break;
+        var px = sx(td), py = sy(wv);
+        pts.push(px + ',' + py);
+        last = { x: px, y: py };
+      }
+      if (pts.length > 1) {
+        svg.push('<polyline class="rh-line" points="' + pts.join(' ') + '"/>');
+        if (last) {
+          svg.push('<text class="curve-label" x="' + (last.x - 4) + '" y="' + (last.y - 3) + '" text-anchor="end">' + rh + '%</text>');
+        }
+      }
+    });
+
+    // --- Saturation curve (100% RH) ---
+    var satPts = [];
+    for (var ts = cfg.tdbMin; ts <= cfg.tdbMax + 1e-6; ts += 1) {
+      var ws = psychrolib.GetSatHumRatio(ts, P);
+      if (ws > cfg.wMax) {
+        // interpolate exit point through top edge for a clean end
+        satPts.push(sx(ts) + ',' + sy(cfg.wMax));
+        break;
+      }
+      satPts.push(sx(ts) + ',' + sy(ws));
+    }
+    svg.push('<polyline class="sat-curve" points="' + satPts.join(' ') + '"/>');
+
+    // --- Axis frame ---
+    svg.push('<line class="axis-line" x1="' + x0 + '" y1="' + (y0 + plotH) + '" x2="' + (x0 + plotW) + '" y2="' + (y0 + plotH) + '"/>');
+    svg.push('<line class="axis-line" x1="' + (x0 + plotW) + '" y1="' + y0 + '" x2="' + (x0 + plotW) + '" y2="' + (y0 + plotH) + '"/>');
+
+    // --- Axis titles ---
+    if (show.axisLabels) {
+      svg.push('<text class="axis-title" x="' + (x0 + plotW / 2) + '" y="' + (H - 12) + '" text-anchor="middle">' + esc(cfg.tdbTitle) + '</text>');
+      svg.push('<text class="axis-title" x="' + (W - 6) + '" y="' + (y0 - 10) + '" text-anchor="end">' + esc(cfg.wTitle) + '</text>');
+    }
+
+    // --- Plotted points ---
+    points.forEach(function (p) {
+      if (typeof p.w !== 'number' || isNaN(p.w)) return;
+      if (p.tdb < cfg.tdbMin || p.tdb > cfg.tdbMax || p.w < 0 || p.w > cfg.wMax) return;
+      var px = sx(p.tdb), py = sy(p.w);
+      svg.push('<circle class="pt-marker" cx="' + px + '" cy="' + py + '" r="5"/>');
+      if (show.pointLabels) {
+        var lbl = p.label ? p.label : ('P' + p.id);
+        svg.push('<text class="pt-label" x="' + (px + 8) + '" y="' + (py - 6) + '">' + esc(lbl) + '</text>');
+      }
+    });
+
+    svg.push('</svg>');
+    container.innerHTML = svg.join('');
+  }
+
+  global.PsychChart = { render: render, CONFIG: CONFIG };
+})(window);

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PsychPlotter</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <h1>PsychPlotter</h1>
+      <span class="tagline">Lightweight psychrometric chart</span>
+    </div>
+    <div class="header-controls">
+      <div class="unit-toggle" role="group" aria-label="Unit system">
+        <button id="unit-ip" class="unit-btn active" type="button">IP</button>
+        <button id="unit-si" class="unit-btn" type="button">SI</button>
+      </div>
+      <div class="unit-toggle" role="group" aria-label="Theme">
+        <button id="theme-dark" class="unit-btn active" type="button">Dark</button>
+        <button id="theme-light" class="unit-btn" type="button">Light</button>
+      </div>
+      <label class="pressure-field">
+        <span>Elevation</span>
+        <input id="elevation" type="number" step="any" value="0" />
+        <span id="elevation-unit" class="unit-suffix">ft</span>
+      </label>
+      <label class="pressure-field">
+        <span>Pressure</span>
+        <input id="pressure" type="number" step="any" />
+        <span id="pressure-unit" class="unit-suffix">psia</span>
+      </label>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="chart-panel">
+      <div id="chart-container" class="chart-container"></div>
+      <div class="chart-options" aria-label="Chart display options">
+        <label><input type="checkbox" id="opt-grid" checked /> Grid</label>
+        <label><input type="checkbox" id="opt-rh" checked /> RH lines</label>
+        <label><input type="checkbox" id="opt-wb" checked /> Wet-bulb lines</label>
+        <label><input type="checkbox" id="opt-axis" checked /> Axis labels</label>
+        <label><input type="checkbox" id="opt-ptlabels" checked /> Point labels</label>
+      </div>
+    </section>
+
+    <aside class="side-panel">
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-tab="points" role="tab" type="button">Points</button>
+        <button class="tab" data-tab="processes" role="tab" type="button">Processes</button>
+        <button class="tab" data-tab="import" role="tab" type="button">Import</button>
+      </div>
+
+      <!-- POINTS TAB -->
+      <div class="tab-panel" id="tab-points" role="tabpanel">
+        <div class="card">
+          <h2>Add a point</h2>
+          <p class="hint">Enter dry-bulb plus one more property. The rest auto-calculate.</p>
+          <form id="point-form" autocomplete="off">
+            <label class="field">
+              <span>Label <em class="opt-tag">(optional)</em></span>
+              <input id="pt-label" type="text" placeholder="e.g. Supply air" maxlength="40" />
+            </label>
+
+            <label class="field">
+              <span>Dry-bulb <em id="lbl-tdb-unit">(°F)</em></span>
+              <input id="pt-tdb" type="number" step="any" required placeholder="75" />
+            </label>
+
+            <label class="field">
+              <span>Second property</span>
+              <select id="pt-prop2">
+                <option value="rh">Relative humidity (%)</option>
+                <option value="twb">Wet-bulb temperature</option>
+                <option value="tdp">Dew-point temperature</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span id="lbl-prop2-name">Relative humidity <em id="lbl-prop2-unit">(%)</em></span>
+              <input id="pt-prop2val" type="number" step="any" required placeholder="50" />
+            </label>
+
+            <div class="form-actions">
+              <button type="submit" class="btn primary">Plot point</button>
+            </div>
+            <p id="form-error" class="form-error" role="alert"></p>
+          </form>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <h2>Points</h2>
+            <button id="clear-all" class="btn small ghost" type="button">Clear all</button>
+          </div>
+          <div id="points-table-wrap" class="table-wrap">
+            <p id="empty-msg" class="hint">No points yet.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- PROCESSES TAB (placeholder) -->
+      <div class="tab-panel hidden" id="tab-processes" role="tabpanel">
+        <div class="card">
+          <h2>Processes</h2>
+          <p class="hint">Coming soon.</p>
+          <p class="placeholder-text">
+            Connect two plotted points into a process line — heating, cooling,
+            humidification, or mixing — drawn on the chart above with its
+            sensible / latent heat breakdown. Points and processes share this
+            same chart, so nothing to switch between.
+          </p>
+        </div>
+      </div>
+
+      <!-- IMPORT TAB (placeholder) -->
+      <div class="tab-panel hidden" id="tab-import" role="tabpanel">
+        <div class="card">
+          <h2>Import weather / data</h2>
+          <p class="hint">Coming soon.</p>
+          <p class="placeholder-text">
+            Load an <strong>EPW</strong> (EnergyPlus weather) or <strong>CSV</strong>
+            file and plot its hourly points on the chart — as a scatter or a
+            binned density cloud. Files are parsed locally in your browser and
+            never uploaded anywhere.
+          </p>
+          <button class="btn ghost" type="button" disabled>Choose file…</button>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <footer class="app-footer">
+    <span>Runs entirely in your browser — no data leaves this page.</span>
+    <span>Psychrometrics via <a href="https://github.com/psychrometrics/psychrolib" target="_blank" rel="noopener">PsychroLib</a> (ASHRAE 2017, MIT).</span>
+  </footer>
+
+  <script src="js/psychrolib.js"></script>
+  <script src="js/chart.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
