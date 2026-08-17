@@ -111,9 +111,8 @@ input:focus, select:focus { outline: none; border-color: var(--accent); }
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 12px;
-  min-height: 480px;
 }
-.chart-container { width: 100%; }
+.chart-container { width: 100%; max-width: 640px; margin: 0 auto; }
 .chart-container svg { width: 100%; height: auto; display: block; }
 
 .side-panel { display: flex; flex-direction: column; gap: 16px; }

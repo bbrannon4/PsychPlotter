@@ -24,6 +24,7 @@
     unit: IP,
     pressurePa: P0,
     theme: 'light',
+    themeExplicit: false,   // becomes true only when the user picks a theme
     show: {
       dryBulbAxis: true, humidityAxis: true, rh: true, wetbulb: true,
       enthalpy: false, dewpoint: false, grid: false
@@ -256,7 +257,8 @@
   function save() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        unit: state.unit, pressurePa: state.pressurePa, theme: state.theme,
+        unit: state.unit, pressurePa: state.pressurePa,
+        theme: state.theme, themeExplicit: state.themeExplicit,
         show: state.show, points: state.points, nextId: state.nextId
       }));
     } catch (e) { /* storage unavailable — ignore */ }
@@ -268,7 +270,12 @@
       var d = JSON.parse(raw);
       if (d.unit === IP || d.unit === SI) state.unit = d.unit;
       if (typeof d.pressurePa === 'number' && d.pressurePa > 0) state.pressurePa = d.pressurePa;
-      if (d.theme === 'dark' || d.theme === 'light') state.theme = d.theme;
+      // Only honor a saved theme the user explicitly chose; otherwise keep the
+      // light default (so an old auto-saved "dark" doesn't override it).
+      if (d.themeExplicit && (d.theme === 'dark' || d.theme === 'light')) {
+        state.theme = d.theme;
+        state.themeExplicit = true;
+      }
       if (d.show) Object.assign(state.show, d.show);
       if (Array.isArray(d.points)) state.points = d.points;
       if (typeof d.nextId === 'number') state.nextId = d.nextId;
@@ -285,12 +292,12 @@
     renderAll();
   }
 
-  function applyTheme(theme) {
+  function applyTheme(theme, explicit) {
     state.theme = theme;
     document.documentElement.setAttribute('data-theme', theme);
     el['theme-dark'].classList.toggle('active', theme === 'dark');
     el['theme-light'].classList.toggle('active', theme === 'light');
-    save();
+    if (explicit) { state.themeExplicit = true; save(); }
   }
 
   // ---- pressure / elevation inputs ---------------------------------------
@@ -351,8 +358,8 @@
 
     el['unit-ip'].addEventListener('click', function () { applyUnit(IP); });
     el['unit-si'].addEventListener('click', function () { applyUnit(SI); });
-    el['theme-dark'].addEventListener('click', function () { applyTheme('dark'); });
-    el['theme-light'].addEventListener('click', function () { applyTheme('light'); });
+    el['theme-dark'].addEventListener('click', function () { applyTheme('dark', true); });
+    el['theme-light'].addEventListener('click', function () { applyTheme('light', true); });
 
     el['elevation'].addEventListener('change', onElevationChange);
     el['pressure'].addEventListener('change', onPressureChange);
@@ -380,7 +387,7 @@
     // reflect loaded state into the UI
     el['unit-ip'].classList.toggle('active', state.unit === IP);
     el['unit-si'].classList.toggle('active', state.unit === SI);
-    applyTheme(state.theme);
+    applyTheme(state.theme, false);
     syncOptionInputs();
 
     renderAll();
