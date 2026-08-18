@@ -19,6 +19,8 @@
   var PA_PER_PSI = 6894.757293168;
   var P0 = 101325;            // standard sea-level pressure, Pa
   var ATM_K = 2.25577e-5, ATM_E = 5.2559; // standard-atmosphere constants
+  var M3S_PER_CFM = 0.0004719474;         // ft³/min -> m³/s
+  var W_PER_BTUH = 0.29307107;            // Btu/h -> W  (1/3.412142)
 
   var state = {
     unit: IP,
@@ -200,6 +202,44 @@
     }).filter(function (p) { return p.segments.length; });
   }
 
+  // Per-segment load breakdown. SHR needs no airflow; absolute loads (W) need it.
+  // Sensible = enthalpy change from the temperature move at the entering W;
+  // latent = the remaining enthalpy change from the humidity move. Loads use the
+  // ACTUAL specific volume at the process's first point (correct at any altitude,
+  // unlike the sea-level 1.08 / 0.68 / 4.5 rules of thumb).
+  function segmentLoads(proc, s) {
+    var pa = pointById(s.aId), pb = pointById(s.bId);
+    if (!pa || !pb) return null;
+    psychrolib.SetUnitSystem(psychrolib.SI);
+    var ha = psychrolib.GetMoistAirEnthalpy(pa.tdbC, pa.w);   // J/kg dry air
+    var hMid = psychrolib.GetMoistAirEnthalpy(pb.tdbC, pa.w); // temperature move at Wa
+    var hb = psychrolib.GetMoistAirEnthalpy(pb.tdbC, pb.w);
+    var sensible = hMid - ha, latent = hb - hMid, total = hb - ha; // J/kg
+    var res = { shr: total !== 0 ? sensible / total : null };
+    if (proc.airflowM3s > 0) {
+      var ref = pointById(proc.pointIds[0]) || pa;
+      var v = psychrolib.GetMoistAirVolume(ref.tdbC, ref.w, ref.pressurePa); // m³/kg dry air
+      var mda = proc.airflowM3s / v;                                          // kg dry air / s
+      res.sensibleW = mda * sensible;
+      res.latentW = mda * latent;
+      res.totalW = mda * total;
+    }
+    return res;
+  }
+
+  function fmtLoad(watts) {
+    return state.unit === IP
+      ? Math.round(watts / W_PER_BTUH).toLocaleString() + ' Btu/h'
+      : (watts / 1000).toFixed(2) + ' kW';
+  }
+  function airflowToDisplay(m3s) {
+    if (!(m3s > 0)) return '';
+    return state.unit === IP ? Math.round(m3s / M3S_PER_CFM) : Math.round(m3s * 1000);
+  }
+  function airflowFromDisplay(v) {
+    return state.unit === IP ? v * M3S_PER_CFM : v / 1000;
+  }
+
   function renderProcessBuilder() {
     // point picker
     var opts = ['<option value="">Add point…</option>'];
@@ -250,9 +290,26 @@
         var options = PATH_TYPES.map(function (t) {
           return '<option value="' + t + '"' + (t === s.path ? ' selected' : '') + '>' + PATH_LABELS[t] + '</option>';
         }).join('');
+        var loads = segmentLoads(proc, s), loadLine = '';
+        if (loads) {
+          var parts = ['SHR ' + (loads.shr !== null ? loads.shr.toFixed(2) : '—')];
+          if (loads.totalW !== undefined) {
+            parts.push('S ' + fmtLoad(loads.sensibleW));
+            parts.push('L ' + fmtLoad(loads.latentW));
+            var t = 'Total ' + fmtLoad(loads.totalW);
+            if (state.unit === IP) t += ' (' + (Math.abs(loads.totalW) / W_PER_BTUH / 12000).toFixed(1) + ' ton)';
+            parts.push(t);
+          }
+          loadLine = '<div class="seg-loads">' + parts.join(' · ') + '</div>';
+        }
         return '<div class="seg-row"><span class="seg-label">' + lbl + '</span>' +
-          '<select data-proc="' + proc.id + '" data-seg="' + s.index + '">' + options + '</select></div>';
+          '<select data-proc="' + proc.id + '" data-seg="' + s.index + '">' + options + '</select></div>' + loadLine;
       }).join('');
+
+      var airflowUnit = state.unit === IP ? 'CFM' : 'L/s';
+      var airflowRow = '<div class="proc-airflow">Airflow ' +
+        '<input type="number" class="airflow-input" data-proc="' + proc.id + '" min="0" step="any" placeholder="—" value="' + airflowToDisplay(proc.airflowM3s) + '" /> ' +
+        airflowUnit + '</div>';
 
       return '<div class="proc-item">' +
         '<div class="proc-item-head">' +
@@ -260,6 +317,7 @@
           '<button class="row-del" data-proc="' + proc.id + '" title="Remove">×</button>' +
         '</div>' +
         '<div class="proc-seq hint">' + seq.join(' → ') + '</div>' +
+        airflowRow +
         segRows +
       '</div>';
     }).join('');
@@ -281,6 +339,17 @@
         if (!proc.paths) proc.paths = {};
         proc.paths[idx] = sel.value;
         save(); renderChart();
+      });
+    });
+    Array.prototype.forEach.call(wrap.querySelectorAll('.airflow-input'), function (inp) {
+      inp.addEventListener('change', function () {
+        var pid = parseInt(inp.getAttribute('data-proc'), 10);
+        var proc = state.processes.filter(function (p) { return p.id === pid; })[0];
+        if (!proc) return;
+        var v = parseFloat(inp.value);
+        proc.airflowM3s = (isFinite(v) && v > 0) ? airflowFromDisplay(v) : null;
+        save();
+        renderProcessList();   // recompute the load lines
       });
     });
   }

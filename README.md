@@ -29,6 +29,10 @@ no database, and no data ever leaves your machine.**
 - **EPW weather import** — load an EnergyPlus Weather file and plot its 8,760
   hourly conditions on the chart as a density cloud. Parsed entirely in the
   browser; the file is never uploaded.
+- **Airflow → loads** — give a process an airflow (CFM / L·s⁻¹) and read the
+  per-segment **sensible / latent / total load** (Btu/h + tons, or kW) and
+  **sensible heat ratio**. Loads use the actual specific volume, so they stay
+  correct at altitude (unlike the sea-level 1.08 / 0.68 / 4.5 factors).
 - **Chart export** — save the chart as a **PNG** or **PDF** image (works on any tab).
 - **Save / load projects** — export your points and processes to a small JSON
   file and re-import it later or share it. Kept as a portable file, not the cloud.
@@ -40,10 +44,13 @@ no database, and no data ever leaves your machine.**
 
 ## Roadmap (planned)
 
-- **Process heat breakdown** — per-segment sensible / latent / total heat and
-  sensible heat ratio (SHR).
+Tracked as GitHub issues — highlights:
+
+- **Cooling-coil analysis** — apparatus dew point (ADP) and bypass factor.
+- **Air mixing** — blend outdoor + return air by flow with mass/energy balance.
+- **Overlays** — ASHRAE 55 comfort and TC 9.9 datacenter envelopes.
 - **CSV import** — plot bulk data from arbitrary CSV files (column mapping).
-- **Overlays** — comfort zones and other reference regions.
+- **Reports** — state-point and process-energy exports.
 
 ## Running it
 
