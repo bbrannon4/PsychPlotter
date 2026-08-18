@@ -101,6 +101,15 @@
       }
     }
 
+    // --- Overlay zones (drawn back-to-front so smaller envelopes stay visible) ---
+    var zones = opts.zones || [];
+    for (var zi = zones.length - 1; zi >= 0; zi--) {
+      var zpts = zones[zi].points.map(function (p) {
+        return sx(p.tdb).toFixed(1) + ',' + sy(Math.min(p.w, cfg.wMax)).toFixed(1);
+      }).join(' ');
+      svg.push('<polygon class="zone ' + zones[zi].cls + '" points="' + zpts + '"/>');
+    }
+
     // --- Weather data cloud (drawn under the reference lines) ---
     var weather = opts.weather || [];
     if (weather.length) {

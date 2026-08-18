@@ -36,7 +36,8 @@
     processes: [],       // {id, name, pointIds:[], closed, paths:{segIndex:type}}
     nextProcessId: 1,
     weather: null,       // {name, count, points:[{tdbC,w}]} — session only, not persisted
-    activeTab: 'points'  // which tab's data the chart shows ('points' | 'import')
+    activeTab: 'points', // which tab's data the chart shows ('points' | 'import')
+    zones: { comfort: false, dcRec: false, dcA1: false, dcA2: false } // overlay toggles (EPW tab)
   };
 
   var stagingIds = [];   // point ids being assembled into a new process
@@ -115,7 +116,8 @@
      'epw-input', 'epw-status', 'epw-clear',
      'export-png', 'export-pdf', 'proj-export', 'proj-import-btn', 'proj-import', 'proj-status',
      'mix-a', 'mix-b', 'mix-a-flow', 'mix-b-flow', 'mix-label', 'mix-add', 'mix-error',
-     'shr-from', 'shr-value', 'shr-tdb', 'shr-tdb-unit', 'shr-label', 'shr-add', 'shr-error'
+     'shr-from', 'shr-value', 'shr-tdb', 'shr-tdb-unit', 'shr-label', 'shr-add', 'shr-error',
+     'zone-comfort', 'zone-dc-rec', 'zone-dc-a1', 'zone-dc-a2', 'zone-stats'
     ].forEach(function (id) { el[id] = document.getElementById(id); });
   }
 
@@ -166,6 +168,11 @@
       processes: onPoints ? resolvedProcessesForChart() : [],
       weather: (onImport && state.weather) ? state.weather.points.map(function (p) {
         return { tdb: state.unit === IP ? cToF(p.tdbC) : p.tdbC, w: p.w };
+      }) : [],
+      zones: onImport ? activeZones().map(function (z) {
+        return { cls: z.cls, points: z.si.map(function (pt) {
+          return { tdb: state.unit === IP ? cToF(pt.c) : pt.c, w: pt.w };
+        }) };
       }) : [],
       show: state.show
     });
@@ -281,6 +288,60 @@
   }
   function airflowFromDisplay(v) {
     return state.unit === IP ? v * M3S_PER_CFM : v / 1000;
+  }
+
+  // ---- overlay zones (#19): comfort + datacenter envelopes -----------------
+  // Each zone is a polygon in (°C, humidity ratio) built at the chart pressure.
+  function zoneEnvelope(P, tMin, tMax, lowerRH, lowerDP, upperRH, upperDP) {
+    psychrolib.SetUnitSystem(psychrolib.SI);
+    var wLoDP = lowerDP != null ? psychrolib.GetSatHumRatio(lowerDP, P) : 0;
+    var wUpDP = upperDP != null ? psychrolib.GetSatHumRatio(upperDP, P) : Infinity;
+    var bot = [], top = [];
+    for (var T = tMin; T <= tMax + 1e-6; T += 0.5) {
+      var lo = Math.max(lowerRH != null ? psychrolib.GetHumRatioFromRelHum(T, lowerRH, P) : 0, wLoDP);
+      var up = Math.min(upperRH != null ? psychrolib.GetHumRatioFromRelHum(T, upperRH, P) : Infinity, wUpDP);
+      bot.push({ c: T, w: lo }); top.push({ c: T, w: up });
+    }
+    return bot.concat(top.reverse());   // closed polygon: lower edge then upper edge back
+  }
+  var ZONE_DEFS = {
+    // Legend/stats order; drawn back-to-front so the smaller envelopes stay visible.
+    comfort: { name: 'Comfort (ASHRAE 55, approx.)', cls: 'zone-comfort',
+      build: function () { return [{ c: 20, w: 0.004 }, { c: 26.5, w: 0.004 }, { c: 25, w: 0.012 }, { c: 18.5, w: 0.012 }]; } },
+    dcRec: { name: 'Datacenter — recommended', cls: 'zone-dc-rec',
+      build: function (P) { return zoneEnvelope(P, 18, 27, null, 5.5, 0.6, 15); } },
+    dcA1: { name: 'Datacenter — allowable A1', cls: 'zone-dc-a1',
+      build: function (P) { return zoneEnvelope(P, 15, 32, 0.08, -12, 0.8, 17); } },
+    dcA2: { name: 'Datacenter — allowable A2', cls: 'zone-dc-a2',
+      build: function (P) { return zoneEnvelope(P, 10, 35, 0.08, -12, 0.8, 21); } }
+  };
+  function activeZones() {
+    var P = state.pressurePa;
+    return Object.keys(ZONE_DEFS).filter(function (k) { return state.zones[k]; }).map(function (k) {
+      return { key: k, name: ZONE_DEFS[k].name, cls: ZONE_DEFS[k].cls, si: ZONE_DEFS[k].build(P) };
+    });
+  }
+  function pointInPolygon(x, y, poly) {
+    var inside = false;
+    for (var i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      var xi = poly[i].c, yi = poly[i].w, xj = poly[j].c, yj = poly[j].w;
+      if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) inside = !inside;
+    }
+    return inside;
+  }
+  function renderZones() {
+    if (!el['zone-stats']) return;
+    if (!state.weather) { el['zone-stats'].innerHTML = ''; return; }
+    var zones = activeZones();
+    if (!zones.length) { el['zone-stats'].innerHTML = ''; return; }
+    var total = state.weather.points.length;
+    el['zone-stats'].innerHTML = zones.map(function (z) {
+      var inside = 0;
+      state.weather.points.forEach(function (p) { if (pointInPolygon(p.tdbC, p.w, z.si)) inside++; });
+      return '<div class="zone-stat"><span class="zone-swatch ' + z.cls + '"></span>' +
+        escapeHtml(z.name) + ' — <strong>' + (inside / total * 100).toFixed(0) + '%</strong> (' +
+        inside.toLocaleString() + ' h)</div>';
+    }).join('');
   }
 
   function pointOptionsHtml() {
@@ -774,6 +835,7 @@
     renderMixBuilder();
     renderShrBuilder();
     renderImport();
+    renderZones();
   }
 
   function escapeHtml(s) {
@@ -1000,7 +1062,17 @@
       state.weather = null;
       renderChart();
       renderImport();
+      renderZones();
     });
+
+    [['zone-comfort', 'comfort'], ['zone-dc-rec', 'dcRec'], ['zone-dc-a1', 'dcA1'], ['zone-dc-a2', 'dcA2']]
+      .forEach(function (pair) {
+        el[pair[0]].addEventListener('change', function () {
+          state.zones[pair[1]] = el[pair[0]].checked;
+          renderChart();
+          renderZones();
+        });
+      });
 
     el['export-png'].addEventListener('click', function () { exportChartImage('png'); });
     el['export-pdf'].addEventListener('click', function () { exportChartImage('pdf'); });

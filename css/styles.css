@@ -220,6 +220,11 @@ table.points td.label-cell, table.points th.label-cell { text-align: left; }
 .proc-label { fill: var(--proc); font-size: 10px; font-family: var(--font); font-weight: 600; paint-order: stroke; stroke: var(--chart-bg); stroke-width: 3px; }
 .wx-layer { opacity: 0.32; }
 .wx-layer circle { fill: var(--wx); }
+.zone { stroke-width: 1.5; }
+.zone-comfort { fill: rgba(80, 180, 120, 0.14); stroke: #3fa06a; }
+.zone-dc-rec  { fill: rgba(74, 140, 230, 0.13); stroke: #3b7fd0; }
+.zone-dc-a1   { fill: rgba(230, 150, 60, 0.11); stroke: #d98a2b; }
+.zone-dc-a2   { fill: rgba(160, 110, 200, 0.10); stroke: #9a5fc0; }
 
 /* Tabs — a segmented control */
 .tabs {
@@ -284,6 +289,16 @@ table.points td.label-cell, table.points th.label-cell { text-align: left; }
 .epw-loaded { color: var(--text); }
 .epw-loaded .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--wx); margin-right: 6px; vertical-align: middle; }
 .epw-error { color: var(--danger); }
+
+/* Overlay zones */
+.zone-check { display: flex; margin: 6px 0; }
+.zone-stats { margin-top: 12px; display: flex; flex-direction: column; gap: 5px; font-size: 12px; }
+.zone-stat { color: var(--text); }
+.zone-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 7px; vertical-align: middle; border: 1px solid; }
+.zone-swatch.zone-comfort { background: rgba(80, 180, 120, 0.35); border-color: #3fa06a; }
+.zone-swatch.zone-dc-rec  { background: rgba(74, 140, 230, 0.35); border-color: #3b7fd0; }
+.zone-swatch.zone-dc-a1   { background: rgba(230, 150, 60, 0.35); border-color: #d98a2b; }
+.zone-swatch.zone-dc-a2   { background: rgba(160, 110, 200, 0.35); border-color: #9a5fc0; }
 
 /* Chart display options */
 .chart-options {
