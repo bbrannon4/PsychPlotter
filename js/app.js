@@ -37,7 +37,7 @@
     nextProcessId: 1,
     weather: null,       // {name, count, points:[{tdbC,w}]} — session only, not persisted
     activeTab: 'points', // which tab's data the chart shows ('points' | 'import')
-    zones: { comfort: false, strategies: false, dcRec: false, dcA1: false, dcA2: false } // overlay toggles (EPW tab)
+    zones: { comfort: false, strategies: false, passive: false, dcRec: false, dcA1: false, dcA2: false } // overlay toggles (EPW tab)
   };
 
   var stagingIds = [];   // point ids being assembled into a new process
@@ -117,7 +117,7 @@
      'export-png', 'export-pdf', 'proj-export', 'proj-import-btn', 'proj-import', 'proj-status',
      'mix-a', 'mix-b', 'mix-a-flow', 'mix-b-flow', 'mix-label', 'mix-add', 'mix-error',
      'shr-from', 'shr-value', 'shr-tdb', 'shr-tdb-unit', 'shr-label', 'shr-add', 'shr-error',
-     'zone-comfort', 'zone-strategies', 'zone-dc-rec', 'zone-dc-a1', 'zone-dc-a2', 'zone-stats'
+     'zone-comfort', 'zone-strategies', 'zone-passive', 'zone-dc-rec', 'zone-dc-a1', 'zone-dc-a2', 'zone-stats'
     ].forEach(function (id) { el[id] = document.getElementById(id); });
   }
 
@@ -349,10 +349,28 @@
     ];
   }
 
+  // Passive strategies that EXTEND comfort (no active conditioning). Unlike the
+  // conditioning strategies these overlap each other and comfort — each answers
+  // "can this hour be made comfortable passively by X?" independently (approx.).
+  function passiveZones() {
+    var Wlo = 0.004, Whi = 0.012;
+    return [
+      { name: 'Natural / fan ventilation', cls: 'zone-vent',
+        polys: [[{ c: 26.5, w: Wlo }, { c: 32, w: Wlo }, { c: 32, w: 0.017 }, { c: 26.5, w: 0.017 }]] },
+      { name: 'Thermal mass + night flush', cls: 'zone-mass',
+        polys: [[{ c: 26.5, w: 0 }, { c: 36, w: 0 }, { c: 36, w: 0.010 }, { c: 26.5, w: 0.010 }]] },
+      { name: 'Internal heat gains', cls: 'zone-intgain',
+        polys: [[{ c: 15, w: Wlo }, { c: 20, w: Wlo }, { c: 20, w: Whi }, { c: 15, w: Whi }]] },
+      { name: 'Passive solar gain', cls: 'zone-solar',
+        polys: [[{ c: 8, w: Wlo }, { c: 15, w: Wlo }, { c: 15, w: Whi }, { c: 8, w: Whi }]] }
+    ];
+  }
+
   function activeZones() {
     var P = state.pressurePa, out = [];
     if (state.zones.comfort) out.push({ name: 'Comfort (ASHRAE 55, approx.)', cls: 'zone-comfort', polys: comfortPolys() });
     if (state.zones.strategies) out = out.concat(strategyZones(P));
+    if (state.zones.passive) out = out.concat(passiveZones());
     if (state.zones.dcRec) out.push({ name: 'Datacenter — recommended', cls: 'zone-dc-rec', polys: [zoneEnvelope(P, 18, 27, null, 5.5, 0.6, 15)] });
     if (state.zones.dcA1) out.push({ name: 'Datacenter — allowable A1', cls: 'zone-dc-a1', polys: [zoneEnvelope(P, 15, 32, 0.08, -12, 0.8, 17)] });
     if (state.zones.dcA2) out.push({ name: 'Datacenter — allowable A2', cls: 'zone-dc-a2', polys: [zoneEnvelope(P, 10, 35, 0.08, -12, 0.8, 21)] });
@@ -1106,7 +1124,7 @@
       renderZones();
     });
 
-    [['zone-comfort', 'comfort'], ['zone-strategies', 'strategies'],
+    [['zone-comfort', 'comfort'], ['zone-strategies', 'strategies'], ['zone-passive', 'passive'],
      ['zone-dc-rec', 'dcRec'], ['zone-dc-a1', 'dcA1'], ['zone-dc-a2', 'dcA2']]
       .forEach(function (pair) {
         el[pair[0]].addEventListener('change', function () {

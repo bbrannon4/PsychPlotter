@@ -226,6 +226,10 @@ table.points td.label-cell, table.points th.label-cell { text-align: left; }
 .zone-humid   { fill: rgba(42, 157, 143, 0.12); stroke: #2a9d8f; }
 .zone-evap    { fill: rgba(74, 163, 255, 0.12); stroke: #4aa3ff; }
 .zone-mech    { fill: rgba(90, 79, 207, 0.11);  stroke: #5a4fcf; }
+.zone-vent    { fill: rgba(87, 167, 115, 0.12); stroke: #57a773; }
+.zone-mass    { fill: rgba(176, 137, 104, 0.12); stroke: #b08968; }
+.zone-intgain { fill: rgba(224, 122, 95, 0.12); stroke: #e07a5f; }
+.zone-solar   { fill: rgba(230, 184, 0, 0.13);  stroke: #d6a400; }
 .zone-dc-rec  { fill: rgba(74, 140, 230, 0.13); stroke: #3b7fd0; }
 .zone-dc-a1   { fill: rgba(230, 150, 60, 0.11); stroke: #d98a2b; }
 .zone-dc-a2   { fill: rgba(160, 110, 200, 0.10); stroke: #9a5fc0; }
@@ -304,6 +308,10 @@ table.points td.label-cell, table.points th.label-cell { text-align: left; }
 .zone-swatch.zone-humid   { background: rgba(42, 157, 143, 0.35); border-color: #2a9d8f; }
 .zone-swatch.zone-evap    { background: rgba(74, 163, 255, 0.35); border-color: #4aa3ff; }
 .zone-swatch.zone-mech    { background: rgba(90, 79, 207, 0.35); border-color: #5a4fcf; }
+.zone-swatch.zone-vent    { background: rgba(87, 167, 115, 0.4); border-color: #57a773; }
+.zone-swatch.zone-mass    { background: rgba(176, 137, 104, 0.4); border-color: #b08968; }
+.zone-swatch.zone-intgain { background: rgba(224, 122, 95, 0.4); border-color: #e07a5f; }
+.zone-swatch.zone-solar   { background: rgba(230, 184, 0, 0.45); border-color: #d6a400; }
 .zone-swatch.zone-dc-rec  { background: rgba(74, 140, 230, 0.35); border-color: #3b7fd0; }
 .zone-swatch.zone-dc-a1   { background: rgba(230, 150, 60, 0.35); border-color: #d98a2b; }
 .zone-swatch.zone-dc-a2   { background: rgba(160, 110, 200, 0.35); border-color: #9a5fc0; }
