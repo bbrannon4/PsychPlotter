@@ -221,7 +221,11 @@ table.points td.label-cell, table.points th.label-cell { text-align: left; }
 .wx-layer { opacity: 0.32; }
 .wx-layer circle { fill: var(--wx); }
 .zone { stroke-width: 1.5; }
-.zone-comfort { fill: rgba(80, 180, 120, 0.14); stroke: #3fa06a; }
+.zone-comfort { fill: rgba(80, 180, 120, 0.16); stroke: #3fa06a; }
+.zone-heat    { fill: rgba(209, 73, 91, 0.12);  stroke: #d1495b; }
+.zone-humid   { fill: rgba(42, 157, 143, 0.12); stroke: #2a9d8f; }
+.zone-evap    { fill: rgba(74, 163, 255, 0.12); stroke: #4aa3ff; }
+.zone-mech    { fill: rgba(90, 79, 207, 0.11);  stroke: #5a4fcf; }
 .zone-dc-rec  { fill: rgba(74, 140, 230, 0.13); stroke: #3b7fd0; }
 .zone-dc-a1   { fill: rgba(230, 150, 60, 0.11); stroke: #d98a2b; }
 .zone-dc-a2   { fill: rgba(160, 110, 200, 0.10); stroke: #9a5fc0; }
@@ -296,6 +300,10 @@ table.points td.label-cell, table.points th.label-cell { text-align: left; }
 .zone-stat { color: var(--text); }
 .zone-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 7px; vertical-align: middle; border: 1px solid; }
 .zone-swatch.zone-comfort { background: rgba(80, 180, 120, 0.35); border-color: #3fa06a; }
+.zone-swatch.zone-heat    { background: rgba(209, 73, 91, 0.35); border-color: #d1495b; }
+.zone-swatch.zone-humid   { background: rgba(42, 157, 143, 0.35); border-color: #2a9d8f; }
+.zone-swatch.zone-evap    { background: rgba(74, 163, 255, 0.35); border-color: #4aa3ff; }
+.zone-swatch.zone-mech    { background: rgba(90, 79, 207, 0.35); border-color: #5a4fcf; }
 .zone-swatch.zone-dc-rec  { background: rgba(74, 140, 230, 0.35); border-color: #3b7fd0; }
 .zone-swatch.zone-dc-a1   { background: rgba(230, 150, 60, 0.35); border-color: #d98a2b; }
 .zone-swatch.zone-dc-a2   { background: rgba(160, 110, 200, 0.35); border-color: #9a5fc0; }

@@ -29,6 +29,10 @@ no database, and no data ever leaves your machine.**
 - **EPW weather import** — load an EnergyPlus Weather file and plot its 8,760
   hourly conditions on the chart as a density cloud. Parsed entirely in the
   browser; the file is never uploaded.
+- **Overlay zones** (EPW tab) — toggle ASHRAE 55 comfort (winter + summer),
+  ASHRAE TC 9.9 datacenter envelopes, and Givoni-style conditioning-strategy
+  regions (heating / humidification / evaporative cooling / mechanical cooling).
+  With weather loaded, each shows the **share of annual hours** inside it.
 - **Airflow → loads** — give a process an airflow (CFM / L·s⁻¹) and read the
   per-segment **sensible / latent / total load** (Btu/h + tons, or kW) and
   **sensible heat ratio**. Loads use the actual specific volume, so they stay

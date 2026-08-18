@@ -37,7 +37,7 @@
     nextProcessId: 1,
     weather: null,       // {name, count, points:[{tdbC,w}]} — session only, not persisted
     activeTab: 'points', // which tab's data the chart shows ('points' | 'import')
-    zones: { comfort: false, dcRec: false, dcA1: false, dcA2: false } // overlay toggles (EPW tab)
+    zones: { comfort: false, strategies: false, dcRec: false, dcA1: false, dcA2: false } // overlay toggles (EPW tab)
   };
 
   var stagingIds = [];   // point ids being assembled into a new process
@@ -117,7 +117,7 @@
      'export-png', 'export-pdf', 'proj-export', 'proj-import-btn', 'proj-import', 'proj-status',
      'mix-a', 'mix-b', 'mix-a-flow', 'mix-b-flow', 'mix-label', 'mix-add', 'mix-error',
      'shr-from', 'shr-value', 'shr-tdb', 'shr-tdb-unit', 'shr-label', 'shr-add', 'shr-error',
-     'zone-comfort', 'zone-dc-rec', 'zone-dc-a1', 'zone-dc-a2', 'zone-stats'
+     'zone-comfort', 'zone-strategies', 'zone-dc-rec', 'zone-dc-a1', 'zone-dc-a2', 'zone-stats'
     ].forEach(function (id) { el[id] = document.getElementById(id); });
   }
 
@@ -170,8 +170,8 @@
         return { tdb: state.unit === IP ? cToF(p.tdbC) : p.tdbC, w: p.w };
       }) : [],
       zones: onImport ? activeZones().map(function (z) {
-        return { cls: z.cls, points: z.si.map(function (pt) {
-          return { tdb: state.unit === IP ? cToF(pt.c) : pt.c, w: pt.w };
+        return { cls: z.cls, polys: z.polys.map(function (poly) {
+          return poly.map(function (pt) { return { tdb: state.unit === IP ? cToF(pt.c) : pt.c, w: pt.w }; });
         }) };
       }) : [],
       show: state.show
@@ -304,22 +304,59 @@
     }
     return bot.concat(top.reverse());   // closed polygon: lower edge then upper edge back
   }
-  var ZONE_DEFS = {
-    // Legend/stats order; drawn back-to-front so the smaller envelopes stay visible.
-    comfort: { name: 'Comfort (ASHRAE 55, approx.)', cls: 'zone-comfort',
-      build: function () { return [{ c: 20, w: 0.004 }, { c: 26.5, w: 0.004 }, { c: 25, w: 0.012 }, { c: 18.5, w: 0.012 }]; } },
-    dcRec: { name: 'Datacenter — recommended', cls: 'zone-dc-rec',
-      build: function (P) { return zoneEnvelope(P, 18, 27, null, 5.5, 0.6, 15); } },
-    dcA1: { name: 'Datacenter — allowable A1', cls: 'zone-dc-a1',
-      build: function (P) { return zoneEnvelope(P, 15, 32, 0.08, -12, 0.8, 17); } },
-    dcA2: { name: 'Datacenter — allowable A2', cls: 'zone-dc-a2',
-      build: function (P) { return zoneEnvelope(P, 10, 35, 0.08, -12, 0.8, 21); } }
-  };
+  // ASHRAE 55 splits into a winter (heating-season, ~1.0 clo) and summer
+  // (cooling-season, ~0.5 clo) comfort zone — two tilted quads (approx.).
+  function comfortPolys() {
+    return [
+      [{ c: 20, w: 0.004 }, { c: 23.5, w: 0.004 }, { c: 22.5, w: 0.012 }, { c: 18.5, w: 0.012 }],  // winter
+      [{ c: 23, w: 0.004 }, { c: 26.5, w: 0.004 }, { c: 25.5, w: 0.012 }, { c: 22, w: 0.012 }]      // summer
+    ];
+  }
+
+  // Conditioning-strategy regions that bring outdoor air INTO comfort (approx.,
+  // Givoni / Climate-Consultant style), relative to a combined comfort box.
+  function strategyZones(P) {
+    psychrolib.SetUnitSystem(psychrolib.SI);
+    var Tlo = 20, Thi = 26.5, Wlo = 0.004, Whi = 0.012, Tmax = 48, Wmax = 0.028;
+    var wbMax = psychrolib.GetTWetBulbFromHumRatio(Thi, Whi, P);  // evaporative reaches comfort below this wet-bulb
+
+    var heating = [{ c: 0, w: Wlo }, { c: Tlo, w: Wlo }, { c: Tlo, w: Whi }, { c: 0, w: Whi }];
+    var humid = [{ c: 0, w: 0 }, { c: Thi, w: 0 }, { c: Thi, w: Wlo }, { c: 0, w: Wlo }];
+
+    var evap = [{ c: Thi, w: 0 }, { c: Thi, w: Whi }], endT = Thi;
+    for (var T = Thi + 1; T <= Tmax; T++) {
+      var w = psychrolib.GetHumRatioFromTWetBulb(T, wbMax, P);
+      if (w <= 0) { endT = T; break; }
+      evap.push({ c: T, w: w }); endT = T;
+    }
+    evap.push({ c: endT, w: 0 });
+
+    var mech = [{ c: Tlo, w: Whi }];
+    for (var T2 = Tlo; T2 <= Tmax; T2++) mech.push({ c: T2, w: Math.min(psychrolib.GetSatHumRatio(T2, P), Wmax) });
+    var wr = psychrolib.GetHumRatioFromTWetBulb(Tmax, wbMax, P); if (wr < 0) wr = 0;
+    mech.push({ c: Tmax, w: wr });
+    for (var T3 = Tmax - 1; T3 >= Thi; T3--) {
+      var w3 = psychrolib.GetHumRatioFromTWetBulb(T3, wbMax, P); if (w3 < 0) w3 = 0;
+      mech.push({ c: T3, w: w3 });
+    }
+    mech.push({ c: Tlo, w: Whi });
+
+    return [
+      { key: 'heating', name: 'Heating', cls: 'zone-heat', polys: [heating] },
+      { key: 'humid', name: 'Humidification', cls: 'zone-humid', polys: [humid] },
+      { key: 'evap', name: 'Evaporative cooling', cls: 'zone-evap', polys: [evap] },
+      { key: 'mech', name: 'Cooling / dehumidification', cls: 'zone-mech', polys: [mech] }
+    ];
+  }
+
   function activeZones() {
-    var P = state.pressurePa;
-    return Object.keys(ZONE_DEFS).filter(function (k) { return state.zones[k]; }).map(function (k) {
-      return { key: k, name: ZONE_DEFS[k].name, cls: ZONE_DEFS[k].cls, si: ZONE_DEFS[k].build(P) };
-    });
+    var P = state.pressurePa, out = [];
+    if (state.zones.comfort) out.push({ name: 'Comfort (ASHRAE 55, approx.)', cls: 'zone-comfort', polys: comfortPolys() });
+    if (state.zones.strategies) out = out.concat(strategyZones(P));
+    if (state.zones.dcRec) out.push({ name: 'Datacenter — recommended', cls: 'zone-dc-rec', polys: [zoneEnvelope(P, 18, 27, null, 5.5, 0.6, 15)] });
+    if (state.zones.dcA1) out.push({ name: 'Datacenter — allowable A1', cls: 'zone-dc-a1', polys: [zoneEnvelope(P, 15, 32, 0.08, -12, 0.8, 17)] });
+    if (state.zones.dcA2) out.push({ name: 'Datacenter — allowable A2', cls: 'zone-dc-a2', polys: [zoneEnvelope(P, 10, 35, 0.08, -12, 0.8, 21)] });
+    return out;
   }
   function pointInPolygon(x, y, poly) {
     var inside = false;
@@ -329,6 +366,10 @@
     }
     return inside;
   }
+  function pointInAnyPoly(x, y, polys) {
+    for (var i = 0; i < polys.length; i++) if (pointInPolygon(x, y, polys[i])) return true;
+    return false;
+  }
   function renderZones() {
     if (!el['zone-stats']) return;
     if (!state.weather) { el['zone-stats'].innerHTML = ''; return; }
@@ -337,7 +378,7 @@
     var total = state.weather.points.length;
     el['zone-stats'].innerHTML = zones.map(function (z) {
       var inside = 0;
-      state.weather.points.forEach(function (p) { if (pointInPolygon(p.tdbC, p.w, z.si)) inside++; });
+      state.weather.points.forEach(function (p) { if (pointInAnyPoly(p.tdbC, p.w, z.polys)) inside++; });
       return '<div class="zone-stat"><span class="zone-swatch ' + z.cls + '"></span>' +
         escapeHtml(z.name) + ' — <strong>' + (inside / total * 100).toFixed(0) + '%</strong> (' +
         inside.toLocaleString() + ' h)</div>';
@@ -1065,7 +1106,8 @@
       renderZones();
     });
 
-    [['zone-comfort', 'comfort'], ['zone-dc-rec', 'dcRec'], ['zone-dc-a1', 'dcA1'], ['zone-dc-a2', 'dcA2']]
+    [['zone-comfort', 'comfort'], ['zone-strategies', 'strategies'],
+     ['zone-dc-rec', 'dcRec'], ['zone-dc-a1', 'dcA1'], ['zone-dc-a2', 'dcA2']]
       .forEach(function (pair) {
         el[pair[0]].addEventListener('change', function () {
           state.zones[pair[1]] = el[pair[0]].checked;
