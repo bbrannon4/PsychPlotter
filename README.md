@@ -29,6 +29,9 @@ no database, and no data ever leaves your machine.**
 - **EPW weather import** — load an EnergyPlus Weather file and plot its 8,760
   hourly conditions on the chart as a density cloud. Parsed entirely in the
   browser; the file is never uploaded.
+- **Chart export** — save the chart as a **PNG** or **PDF** image (works on any tab).
+- **Save / load projects** — export your points and processes to a small JSON
+  file and re-import it later or share it. Kept as a portable file, not the cloud.
 - **Light / dark themes.**
 - **Property table** — dry-bulb, wet-bulb, dew-point, RH, humidity ratio,
   enthalpy, and specific volume for each point.
@@ -40,10 +43,7 @@ no database, and no data ever leaves your machine.**
 - **Process heat breakdown** — per-segment sensible / latent / total heat and
   sensible heat ratio (SHR).
 - **CSV import** — plot bulk data from arbitrary CSV files (column mapping).
-- **Project files** — save a project to a small JSON file and re-import it later
-  (and to share with a colleague). No cloud storage, no personal data.
 - **Overlays** — comfort zones and other reference regions.
-- **Chart export** — PNG/PDF of the chart for reports.
 
 ## Running it
 

@@ -185,8 +185,6 @@ table.points td.label-cell, table.points th.label-cell { text-align: left; }
 .chart-svg { background: var(--chart-bg); border-radius: 8px; }
 .axis-line { stroke: var(--grid-strong); stroke-width: 1; }
 .grid-line { stroke: var(--grid); stroke-width: 1; }
-.sat-curve { fill: none; stroke: var(--sat); stroke-width: 2; }
-.sat-label { fill: var(--sat); font-size: 10px; font-family: var(--font); font-weight: 700; paint-order: stroke; stroke: var(--chart-bg); stroke-width: 3px; }
 .rh-line { fill: none; stroke: var(--rh); stroke-width: 1; }
 .wb-line { fill: none; stroke: var(--wb); stroke-width: 0.8; stroke-dasharray: 4 3; opacity: 0.7; }
 .enth-line { fill: none; stroke: var(--enth); stroke-width: 0.8; opacity: 0.75; }
@@ -265,6 +263,8 @@ table.points td.label-cell, table.points th.label-cell { text-align: left; }
 }
 .chart-options label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
 .chart-options input { accent-color: var(--accent); }
+
+.chart-actions { display: flex; gap: 8px; justify-content: flex-end; padding: 8px 12px 2px; }
 
 @media (max-width: 860px) {
   .layout { grid-template-columns: 1fr; }

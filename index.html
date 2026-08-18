@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>PsychPlotter</title>
-  <link rel="stylesheet" href="css/styles.css?v=9" />
+  <link rel="stylesheet" href="css/styles.css?v=10" />
 </head>
 <body>
   <header class="app-header">
@@ -45,6 +45,10 @@
         <label><input type="checkbox" id="opt-enth" /> Enthalpy lines</label>
         <label><input type="checkbox" id="opt-dp" /> Dew-point lines</label>
         <label><input type="checkbox" id="opt-grid" /> Grid</label>
+      </div>
+      <div class="chart-actions">
+        <button id="export-png" class="btn small ghost" type="button">Export PNG</button>
+        <button id="export-pdf" class="btn small ghost" type="button">Export PDF</button>
       </div>
     </section>
 
@@ -130,6 +134,18 @@
             <p class="hint">No processes yet.</p>
           </div>
         </div>
+
+        <div class="card">
+          <h2>Save / load project</h2>
+          <p class="hint">Export your points and processes to a small file you can
+            re-import later or share with a colleague.</p>
+          <div class="form-actions">
+            <button id="proj-export" class="btn ghost" type="button">Export project</button>
+            <button id="proj-import-btn" class="btn ghost" type="button">Import project</button>
+            <input id="proj-import" type="file" accept=".json,application/json" hidden />
+          </div>
+          <p id="proj-status" class="form-error" role="alert"></p>
+        </div>
       </div>
 
       <!-- IMPORT TAB -->
@@ -157,8 +173,8 @@
     <span>Psychrometrics via <a href="https://github.com/psychrometrics/psychrolib" target="_blank" rel="noopener">PsychroLib</a> (ASHRAE 2017, MIT).</span>
   </footer>
 
-  <script src="js/psychrolib.js?v=9"></script>
-  <script src="js/chart.js?v=9"></script>
-  <script src="js/app.js?v=9"></script>
+  <script src="js/psychrolib.js?v=10"></script>
+  <script src="js/chart.js?v=10"></script>
+  <script src="js/app.js?v=10"></script>
 </body>
 </html>

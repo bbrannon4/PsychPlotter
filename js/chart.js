@@ -178,22 +178,22 @@
       }
     });
 
-    // --- Saturation curve (100% RH) ---
-    var satPts = [];
+    // --- Saturation curve (100% RH) — styled like the other RH lines ---
+    var satPts = [], satLast = null;
     for (var ts = cfg.tdbMin; ts <= cfg.tdbMax + 1e-6; ts += 1) {
       var ws = psychrolib.GetSatHumRatio(ts, P);
       if (ws > cfg.wMax) {
-        // interpolate exit point through top edge for a clean end
-        satPts.push(sx(ts) + ',' + sy(cfg.wMax));
+        satPts.push(sx(ts) + ',' + sy(cfg.wMax)); // clean exit through the top edge
         break;
       }
-      satPts.push(sx(ts) + ',' + sy(ws));
+      var spx = sx(ts), spy = sy(ws);
+      satPts.push(spx + ',' + spy);
+      satLast = { x: spx, y: spy };              // last point below the top edge
     }
-    svg.push('<polyline class="sat-curve" points="' + satPts.join(' ') + '"/>');
-    if (satPts.length > 4) {
-      // label the boundary in the (blank) super-saturated region to its upper-left
-      var slc = satPts[Math.floor(satPts.length * 0.5)].split(',');
-      svg.push('<text class="sat-label" x="' + (parseFloat(slc[0]) - 5) + '" y="' + (parseFloat(slc[1]) - 4) + '" text-anchor="end">100%</text>');
+    svg.push('<polyline class="rh-line" points="' + satPts.join(' ') + '"/>');
+    if (satLast) {
+      // label at the top end, consistent with the 10–90% RH labels
+      svg.push('<text class="curve-label" x="' + (satLast.x - 4) + '" y="' + (satLast.y - 3) + '" text-anchor="end">100%</text>');
     }
 
     // --- Axis frame ---

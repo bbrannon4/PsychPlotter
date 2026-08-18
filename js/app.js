@@ -110,7 +110,8 @@
      'opt-tdb-axis', 'opt-w-axis', 'opt-rh', 'opt-wb', 'opt-enth', 'opt-dp', 'opt-grid',
      'proc-name', 'proc-add-point', 'proc-staging', 'proc-closed', 'proc-add',
      'proc-clear-staging', 'proc-error', 'processes-wrap',
-     'epw-input', 'epw-status', 'epw-clear'
+     'epw-input', 'epw-status', 'epw-clear',
+     'export-png', 'export-pdf', 'proj-export', 'proj-import-btn', 'proj-import', 'proj-status'
     ].forEach(function (id) { el[id] = document.getElementById(id); });
   }
 
@@ -380,6 +381,127 @@
     el['epw-clear'].hidden = !state.weather;
   }
 
+  // ---- chart image export (PNG / PDF) — works on any tab ------------------
+  function downloadBlob(blob, filename) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
+  // The chart's colours come from CSS classes/variables, which don't travel
+  // with a serialized SVG, so inline the computed styles onto a clone first.
+  function inlineChartStyles(srcSvg, cloneSvg) {
+    var props = ['fill', 'stroke', 'stroke-width', 'stroke-dasharray', 'opacity',
+                 'font-size', 'font-family', 'font-weight', 'text-anchor', 'paint-order'];
+    var wxColor = getComputedStyle(document.documentElement).getPropertyValue('--wx').trim();
+    var procColor = getComputedStyle(document.documentElement).getPropertyValue('--proc').trim();
+    var srcAll = srcSvg.querySelectorAll('*');
+    var clAll = cloneSvg.querySelectorAll('*');
+    for (var i = 0; i < srcAll.length && i < clAll.length; i++) {
+      var s = srcAll[i], c = clAll[i];
+      var cls = s.getAttribute('class') || '';
+      // Weather dots (thousands) inherit fill from their group — style the group only.
+      if (s.tagName.toLowerCase() === 'circle' && cls.indexOf('wx-dot') < 0 &&
+          s.parentNode && ((s.parentNode.getAttribute && s.parentNode.getAttribute('class')) || '').indexOf('wx-layer') >= 0) {
+        continue;
+      }
+      var cs = getComputedStyle(s);
+      var decl = '';
+      for (var j = 0; j < props.length; j++) {
+        var v = cs.getPropertyValue(props[j]);
+        if (v) decl += props[j] + ':' + v + ';';
+      }
+      if (cls.indexOf('wx-layer') >= 0) decl += 'fill:' + wxColor + ';';        // dots inherit this
+      if (cls.indexOf('proc-arrow-head') >= 0) decl += 'fill:' + procColor + ';'; // marker in <defs>
+      c.setAttribute('style', decl);
+    }
+  }
+
+  function exportChartImage(type) {
+    var srcSvg = el['chart-container'].querySelector('svg');
+    if (!srcSvg) return;
+    var vb = srcSvg.viewBox.baseVal;
+    var scale = 2.5, w = Math.round(vb.width * scale), h = Math.round(vb.height * scale);
+    var clone = srcSvg.cloneNode(true);
+    inlineChartStyles(srcSvg, clone);
+    clone.setAttribute('width', w);
+    clone.setAttribute('height', h);
+    var xml = new XMLSerializer().serializeToString(clone);
+    var img = new Image();
+    img.onload = function () {
+      var canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      var ctx = canvas.getContext('2d');
+      ctx.fillStyle = (getComputedStyle(document.documentElement).getPropertyValue('--chart-bg') || '#ffffff').trim();
+      ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, w, h);
+      if (type === 'pdf') {
+        downloadBlob(jpegToPdf(canvas.toDataURL('image/jpeg', 0.92), w, h), 'psychrometric-chart.pdf');
+      } else {
+        canvas.toBlob(function (blob) { downloadBlob(blob, 'psychrometric-chart.png'); }, 'image/png');
+      }
+    };
+    img.onerror = function () { alert('Chart export failed.'); };
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
+  }
+
+  // Minimal single-page PDF embedding the chart as a JPEG (no dependencies).
+  function jpegToPdf(dataUrl, w, h) {
+    var jpg = atob(dataUrl.split(',')[1]);
+    var maxDim = 1400, sc = Math.min(1, maxDim / Math.max(w, h));
+    var pw = (w * sc).toFixed(2), ph = (h * sc).toFixed(2);
+    var content = 'q ' + pw + ' 0 0 ' + ph + ' 0 0 cm /Im0 Do Q';
+    var objs = [null,
+      '<< /Type /Catalog /Pages 2 0 R >>',
+      '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+      '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + pw + ' ' + ph + '] ' +
+        '/Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>',
+      '<< /Type /XObject /Subtype /Image /Width ' + w + ' /Height ' + h +
+        ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' + jpg.length + ' >>\nstream\n' + jpg + '\nendstream',
+      '<< /Length ' + content.length + ' >>\nstream\n' + content + '\nendstream'];
+    var pdf = '%PDF-1.4\n', offsets = [];
+    for (var i = 1; i <= 5; i++) { offsets[i] = pdf.length; pdf += i + ' 0 obj\n' + objs[i] + '\nendobj\n'; }
+    var xref = pdf.length;
+    pdf += 'xref\n0 6\n0000000000 65535 f \n';
+    for (var k = 1; k <= 5; k++) pdf += ('0000000000' + offsets[k]).slice(-10) + ' 00000 n \n';
+    pdf += 'trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n' + xref + '\n%%EOF';
+    var bytes = new Uint8Array(pdf.length);
+    for (var b = 0; b < pdf.length; b++) bytes[b] = pdf.charCodeAt(b) & 0xff;
+    return new Blob([bytes], { type: 'application/pdf' });
+  }
+
+  // ---- project export / import (points + processes) ----------------------
+  function exportProject() {
+    var data = {
+      app: 'PsychPlotter', version: 1,
+      pressurePa: state.pressurePa,
+      points: state.points, nextId: state.nextId,
+      processes: state.processes, nextProcessId: state.nextProcessId
+    };
+    downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }),
+      'psychplotter-project.json');
+  }
+
+  function importProject(text) {
+    el['proj-status'].textContent = '';
+    var d;
+    try { d = JSON.parse(text); } catch (e) { el['proj-status'].textContent = 'Not a valid project file.'; return; }
+    if (!d || d.app !== 'PsychPlotter' || !Array.isArray(d.points)) {
+      el['proj-status'].textContent = 'This isn’t a PsychPlotter project file.';
+      return;
+    }
+    state.points = d.points;
+    state.processes = Array.isArray(d.processes) ? d.processes : [];
+    state.nextId = typeof d.nextId === 'number' ? d.nextId : (state.points.length + 1);
+    state.nextProcessId = typeof d.nextProcessId === 'number' ? d.nextProcessId : (state.processes.length + 1);
+    if (typeof d.pressurePa === 'number' && d.pressurePa > 0) state.pressurePa = d.pressurePa;
+    stagingIds = [];
+    save();
+    renderAll();
+  }
+
   function renderTable() {
     var wrap = el['points-table-wrap'];
     if (state.points.length === 0) {
@@ -500,7 +622,7 @@
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         unit: state.unit, pressurePa: state.pressurePa,
         theme: state.theme, themeExplicit: state.themeExplicit,
-        show: state.show, points: state.points, nextId: state.nextId,
+        points: state.points, nextId: state.nextId,
         processes: state.processes, nextProcessId: state.nextProcessId
       }));
     } catch (e) { /* storage unavailable — ignore */ }
@@ -518,7 +640,8 @@
         state.theme = d.theme;
         state.themeExplicit = true;
       }
-      if (d.show) Object.assign(state.show, d.show);
+      // Chart display toggles are intentionally not restored — they always start
+      // from the defaults (grid/enthalpy/dew-point off, the rest on).
       if (Array.isArray(d.points)) state.points = d.points;
       if (typeof d.nextId === 'number') state.nextId = d.nextId;
       if (Array.isArray(d.processes)) state.processes = d.processes;
@@ -636,6 +759,20 @@
       renderChart();
       renderImport();
     });
+
+    el['export-png'].addEventListener('click', function () { exportChartImage('png'); });
+    el['export-pdf'].addEventListener('click', function () { exportChartImage('pdf'); });
+
+    el['proj-export'].addEventListener('click', exportProject);
+    el['proj-import-btn'].addEventListener('click', function () { el['proj-import'].click(); });
+    el['proj-import'].addEventListener('change', function () {
+      var file = el['proj-import'].files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function (ev) { importProject(ev.target.result); el['proj-import'].value = ''; };
+      reader.onerror = function () { el['proj-status'].textContent = 'Could not read this file.'; };
+      reader.readAsText(file);
+    });
     el['proc-clear-staging'].addEventListener('click', function () {
       stagingIds = [];
       el['proc-name'].value = '';
@@ -645,7 +782,6 @@
     });
 
     el['clear-all'].addEventListener('click', function () {
-      if (state.points.length && !confirm('Remove all points and processes?')) return;
       state.points = [];
       state.processes = [];
       stagingIds = [];
