@@ -312,8 +312,9 @@
     state.points = state.points.filter(function (p) { return p.id !== id; });
     stagingIds = stagingIds.filter(function (sid) { return sid !== id; });
     state.processes = state.processes.map(function (proc) {
+      if (proc.pointIds.indexOf(id) === -1) return proc;   // unaffected — keep its path types
       proc.pointIds = proc.pointIds.filter(function (pid) { return pid !== id; });
-      proc.paths = {};
+      proc.paths = {};   // segment indices shifted — reset this process's paths
       return proc;
     }).filter(function (proc) { return proc.pointIds.length >= 2; });
     save();
@@ -333,17 +334,25 @@
       var loc = lines[0].split(',');
       var city = (loc[1] || '').trim() || 'Weather file';
 
+      // Compute every hour AND draw the chart at the site's own pressure (from the
+      // LOCATION elevation, field 9), so humid high-altitude hours can't plot above
+      // the 100% boundary — a state at RH<=100% never exceeds saturation at that
+      // same pressure. This also auto-sets the chart's elevation to the site.
       psychrolib.SetUnitSystem(psychrolib.SI);
+      var elevM = parseFloat(loc[9]);
+      if (isFinite(elevM) && elevM > -500 && elevM < 6000) {
+        state.pressurePa = psychrolib.GetStandardAtmPressure(elevM);
+      }
+      var P = state.pressurePa;
+
       var pts = [], skipped = 0;
       for (var i = 8; i < lines.length; i++) {
         var line = lines[i];
         if (!line) continue;
         var f = line.split(',');
         if (f.length < 10) continue;
-        var tdb = parseFloat(f[6]), tdp = parseFloat(f[7]);
-        var rh = parseFloat(f[8]), pr = parseFloat(f[9]);
+        var tdb = parseFloat(f[6]), tdp = parseFloat(f[7]), rh = parseFloat(f[8]);
         if (!isFinite(tdb) || tdb <= -60 || tdb >= 70) { skipped++; continue; } // EPW missing = 99.9
-        var P = (isFinite(pr) && pr >= 30000 && pr <= 120000) ? pr : state.pressurePa;
         var w = null;
         try {
           if (isFinite(rh) && rh > 0 && rh <= 100) {
@@ -358,8 +367,8 @@
 
       if (!pts.length) { setImportError('No valid hourly data found in this file.'); return; }
       state.weather = { name: city, count: pts.length, points: pts };
-      renderChart();
-      renderImport();
+      save();       // persist the pressure change
+      renderAll();  // update the elevation/pressure fields + chart consistently
     } catch (e) {
       setImportError('Could not read this file.');
     }
@@ -403,10 +412,8 @@
       var s = srcAll[i], c = clAll[i];
       var cls = s.getAttribute('class') || '';
       // Weather dots (thousands) inherit fill from their group — style the group only.
-      if (s.tagName.toLowerCase() === 'circle' && cls.indexOf('wx-dot') < 0 &&
-          s.parentNode && ((s.parentNode.getAttribute && s.parentNode.getAttribute('class')) || '').indexOf('wx-layer') >= 0) {
-        continue;
-      }
+      var parentCls = (s.parentNode && s.parentNode.getAttribute && s.parentNode.getAttribute('class')) || '';
+      if (s.tagName.toLowerCase() === 'circle' && parentCls.indexOf('wx-layer') >= 0) continue;
       var cs = getComputedStyle(s);
       var decl = '';
       for (var j = 0; j < props.length; j++) {
@@ -492,14 +499,20 @@
       el['proj-status'].textContent = 'This isn’t a PsychPlotter project file.';
       return;
     }
-    state.points = d.points;
+    // Keep only well-formed points so a corrupt/edited file can't break rendering.
+    var points = d.points.filter(function (p) {
+      return p && typeof p.id === 'number' && typeof p.tdbC === 'number' &&
+        typeof p.w === 'number' && isFinite(p.tdbC) && isFinite(p.w);
+    });
+    var maxId = points.reduce(function (m, p) { return Math.max(m, p.id); }, 0);
+    state.points = points;
     state.processes = Array.isArray(d.processes) ? d.processes : [];
-    state.nextId = typeof d.nextId === 'number' ? d.nextId : (state.points.length + 1);
+    state.nextId = typeof d.nextId === 'number' && d.nextId > maxId ? d.nextId : maxId + 1;
     state.nextProcessId = typeof d.nextProcessId === 'number' ? d.nextProcessId : (state.processes.length + 1);
     if (typeof d.pressurePa === 'number' && d.pressurePa > 0) state.pressurePa = d.pressurePa;
     stagingIds = [];
+    renderAll();  // render first so a bad point can't persist a broken state
     save();
-    renderAll();
   }
 
   function renderTable() {
