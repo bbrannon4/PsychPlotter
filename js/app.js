@@ -33,7 +33,8 @@
     nextId: 1,
     processes: [],       // {id, name, pointIds:[], closed, paths:{segIndex:type}}
     nextProcessId: 1,
-    weather: null        // {name, count, points:[{tdbC,w}]} — session only, not persisted
+    weather: null,       // {name, count, points:[{tdbC,w}]} — session only, not persisted
+    activeTab: 'points'  // which tab's data the chart shows ('points' | 'import')
   };
 
   var stagingIds = [];   // point ids being assembled into a new process
@@ -142,16 +143,20 @@
   }
 
   function renderChart() {
-    var pts = state.points.map(function (p) {
+    // Points/processes and weather are kept on separate tabs; the chart shows
+    // only the active tab's data (the reference lines are always drawn).
+    var onPoints = state.activeTab === 'points';
+    var onImport = state.activeTab === 'import';
+    var pts = onPoints ? state.points.map(function (p) {
       var d = derive(p, state.unit);
       return { id: p.id, label: p.label, tdb: d.tdb, w: d.w };
-    });
+    }) : [];
     PsychChart.render(el['chart-container'], {
       unitSystem: state.unit,
       pressure: pressureInUnit(state.pressurePa, state.unit),
       points: pts,
-      processes: resolvedProcessesForChart(),
-      weather: state.weather ? state.weather.points.map(function (p) {
+      processes: onPoints ? resolvedProcessesForChart() : [],
+      weather: (onImport && state.weather) ? state.weather.points.map(function (p) {
         return { tdb: state.unit === IP ? cToF(p.tdbC) : p.tdbC, w: p.w };
       }) : [],
       show: state.show
@@ -586,6 +591,8 @@
         ['points', 'import'].forEach(function (n) {
           document.getElementById('tab-' + n).classList.toggle('hidden', n !== name);
         });
+        state.activeTab = name;
+        renderChart();
       });
     });
   }

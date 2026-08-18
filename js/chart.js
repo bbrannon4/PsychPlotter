@@ -190,6 +190,11 @@
       satPts.push(sx(ts) + ',' + sy(ws));
     }
     svg.push('<polyline class="sat-curve" points="' + satPts.join(' ') + '"/>');
+    if (satPts.length > 4) {
+      // label the boundary in the (blank) super-saturated region to its upper-left
+      var slc = satPts[Math.floor(satPts.length * 0.5)].split(',');
+      svg.push('<text class="sat-label" x="' + (parseFloat(slc[0]) - 5) + '" y="' + (parseFloat(slc[1]) - 4) + '" text-anchor="end">100%</text>');
+    }
 
     // --- Axis frame ---
     svg.push('<line class="axis-line" x1="' + x0 + '" y1="' + (y0 + plotH) + '" x2="' + (x0 + plotW) + '" y2="' + (y0 + plotH) + '"/>');
