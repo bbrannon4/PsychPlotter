@@ -113,7 +113,9 @@
      'proc-name', 'proc-add-point', 'proc-staging', 'proc-closed', 'proc-add',
      'proc-clear-staging', 'proc-error', 'processes-wrap',
      'epw-input', 'epw-status', 'epw-clear',
-     'export-png', 'export-pdf', 'proj-export', 'proj-import-btn', 'proj-import', 'proj-status'
+     'export-png', 'export-pdf', 'proj-export', 'proj-import-btn', 'proj-import', 'proj-status',
+     'mix-a', 'mix-b', 'mix-a-flow', 'mix-b-flow', 'mix-label', 'mix-add', 'mix-error',
+     'shr-from', 'shr-value', 'shr-tdb', 'shr-tdb-unit', 'shr-label', 'shr-add', 'shr-error'
     ].forEach(function (id) { el[id] = document.getElementById(id); });
   }
 
@@ -133,6 +135,9 @@
     el['lbl-prop2-name'].textContent = meta.name + ' ';
     el['lbl-prop2-unit'].textContent = '(' + (meta.unit === 'TEMP' ? u.temp : meta.unit) + ')';
     el['pt-tdb'].placeholder = state.unit === IP ? '75' : '24';
+    var flowUnit = state.unit === IP ? 'CFM' : 'L/s';
+    Array.prototype.forEach.call(document.querySelectorAll('.mix-unit'), function (sp) { sp.textContent = flowUnit; });
+    el['shr-tdb-unit'].textContent = '(' + u.temp + ')';
   }
 
   // Populate both the elevation and pressure fields from canonical pressurePa.
@@ -232,12 +237,139 @@
       ? Math.round(watts / W_PER_BTUH).toLocaleString() + ' Btu/h'
       : (watts / 1000).toFixed(2) + ' kW';
   }
+
+  // Apparatus dew point + bypass factor for a cooling segment. The ADP is where
+  // the straight entering->leaving line, extended, meets the saturation curve;
+  // the bypass factor is the fraction of air that "misses" the coil surface.
+  // Returns { adpTdb (current unit), bf } or null when it doesn't apply.
+  function coilADP(s) {
+    var pa = pointById(s.aId), pb = pointById(s.bId);
+    if (!pa || !pb) return null;
+    if (pb.tdbC >= pa.tdbC - 1e-6) return null;   // must be cooling
+    if (pb.w > pa.w + 1e-9) return null;          // must not be humidifying
+    psychrolib.SetUnitSystem(psychrolib.SI);
+    var P = pa.pressurePa;
+    var Ta = pa.tdbC, Wa = pa.w, Tb = pb.tdbC;
+    var slope = (Wa - pb.w) / (Ta - Tb);          // dW/dT along the process line
+    function f(T) { return (Wa + slope * (T - Ta)) - psychrolib.GetSatHumRatio(T, P); }
+    // A chord can cross the convex saturation curve twice; the ADP is the FIRST
+    // (upper) crossing below the leaving temp. Scan down from Tb until f turns +.
+    if (f(Tb) > 1e-9) return null;                 // leaving state already supersaturated
+    var step = 0.25, prev = Tb, prevF = f(Tb), adpC = null;
+    for (var T = Tb - step; T > Tb - 40; T -= step) {
+      var cur = f(T);
+      if (prevF <= 0 && cur > 0) {                 // crossing between T and prev
+        var lo = T, hi = prev;                     // f(lo) > 0, f(hi) <= 0
+        for (var i = 0; i < 60; i++) {
+          var mid = (lo + hi) / 2;
+          if (f(mid) > 0) lo = mid; else hi = mid;
+        }
+        adpC = (lo + hi) / 2;
+        break;
+      }
+      prev = T; prevF = cur;
+    }
+    if (adpC === null) return null;
+    var bf = (Tb - adpC) / (Ta - adpC);            // dry-bulb bypass factor
+    if (!(bf >= 0) || bf > 1) return null;
+    return { adpTdb: state.unit === IP ? cToF(adpC) : adpC, bf: bf };
+  }
+
   function airflowToDisplay(m3s) {
     if (!(m3s > 0)) return '';
     return state.unit === IP ? Math.round(m3s / M3S_PER_CFM) : Math.round(m3s * 1000);
   }
   function airflowFromDisplay(v) {
     return state.unit === IP ? v * M3S_PER_CFM : v / 1000;
+  }
+
+  function pointOptionsHtml() {
+    var opts = ['<option value="">Select…</option>'];
+    state.points.forEach(function (p) {
+      opts.push('<option value="' + p.id + '">' + escapeHtml(pointName(p)) + '</option>');
+    });
+    return opts.join('');
+  }
+
+  // ---- mixing (#7): blend two airstreams by dry-air mass into a new point ----
+  function renderMixBuilder() {
+    var aSel = el['mix-a'].value, bSel = el['mix-b'].value;
+    el['mix-a'].innerHTML = pointOptionsHtml();
+    el['mix-b'].innerHTML = pointOptionsHtml();
+    el['mix-a'].value = aSel; el['mix-b'].value = bSel;
+    var few = state.points.length < 2;
+    el['mix-a'].disabled = el['mix-b'].disabled = few;
+    updateMixButton();
+  }
+  function updateMixButton() {
+    var a = parseInt(el['mix-a'].value, 10), b = parseInt(el['mix-b'].value, 10);
+    var fa = parseFloat(el['mix-a-flow'].value), fb = parseFloat(el['mix-b-flow'].value);
+    el['mix-add'].disabled = !(a && b && a !== b && fa > 0 && fb > 0);
+  }
+  function addMixedPoint() {
+    el['mix-error'].textContent = '';
+    var pa = pointById(parseInt(el['mix-a'].value, 10));
+    var pb = pointById(parseInt(el['mix-b'].value, 10));
+    var fa = parseFloat(el['mix-a-flow'].value), fb = parseFloat(el['mix-b-flow'].value);
+    if (!pa || !pb || pa === pb || !(fa > 0) || !(fb > 0)) {
+      el['mix-error'].textContent = 'Pick two different points and positive flows.'; return;
+    }
+    psychrolib.SetUnitSystem(psychrolib.SI);
+    var mda = airflowFromDisplay(fa) / psychrolib.GetMoistAirVolume(pa.tdbC, pa.w, pa.pressurePa);
+    var mdb = airflowFromDisplay(fb) / psychrolib.GetMoistAirVolume(pb.tdbC, pb.w, pb.pressurePa);
+    var tot = mda + mdb;
+    var Wmix = (mda * pa.w + mdb * pb.w) / tot;
+    var hmix = (mda * psychrolib.GetMoistAirEnthalpy(pa.tdbC, pa.w) +
+                mdb * psychrolib.GetMoistAirEnthalpy(pb.tdbC, pb.w)) / tot;
+    var Tmix = psychrolib.GetTDryBulbFromEnthalpyAndHumRatio(hmix, Wmix);
+    state.points.push({ id: state.nextId++, label: el['mix-label'].value.trim(),
+      tdbC: Tmix, w: Wmix, pressurePa: pa.pressurePa });
+    el['mix-a-flow'].value = ''; el['mix-b-flow'].value = ''; el['mix-label'].value = '';
+    save(); renderAll();
+  }
+
+  // ---- SHR line (#8): from a point at a target SHR to a supply dry-bulb ----
+  function renderShrBuilder() {
+    var sel = el['shr-from'].value;
+    el['shr-from'].innerHTML = pointOptionsHtml();
+    el['shr-from'].value = sel;
+    el['shr-from'].disabled = state.points.length < 1;
+    updateShrButton();
+  }
+  function updateShrButton() {
+    var from = parseInt(el['shr-from'].value, 10);
+    el['shr-add'].disabled = !(from && isFinite(parseFloat(el['shr-value'].value)) &&
+      isFinite(parseFloat(el['shr-tdb'].value)));
+  }
+  function addShrProcess() {
+    el['shr-error'].textContent = '';
+    var pa = pointById(parseInt(el['shr-from'].value, 10));
+    var shr = parseFloat(el['shr-value'].value);
+    var TbDisp = parseFloat(el['shr-tdb'].value);
+    if (!pa || !(shr > 0) || shr > 1 || !isFinite(TbDisp)) {
+      el['shr-error'].textContent = 'Enter an SHR in 0–1 and a supply dry-bulb.'; return;
+    }
+    psychrolib.SetUnitSystem(psychrolib.SI);
+    var Ta = pa.tdbC, Wa = pa.w, Tb = state.unit === IP ? fToC(TbDisp) : TbDisp;
+    var hTbWa = psychrolib.GetMoistAirEnthalpy(Tb, Wa);
+    var sensible = hTbWa - psychrolib.GetMoistAirEnthalpy(Ta, Wa);
+    if (Math.abs(sensible) < 1e-6) {
+      el['shr-error'].textContent = 'Supply dry-bulb must differ from the start point.'; return;
+    }
+    var latent = sensible / shr - sensible;                    // total = sensible/shr
+    var a0 = psychrolib.GetMoistAirEnthalpy(Tb, 0), b0 = psychrolib.GetMoistAirEnthalpy(Tb, 1) - a0;
+    var Wb = (hTbWa + latent - a0) / b0;
+    if (!(Wb >= 0) || !isFinite(Wb)) { el['shr-error'].textContent = 'That SHR/supply gives an invalid state.'; return; }
+    if (Wb > psychrolib.GetSatHumRatio(Tb, pa.pressurePa) + 1e-9) {
+      el['shr-error'].textContent = 'That target is above saturation (100% RH).'; return;
+    }
+    var endId = state.nextId++;
+    var lbl = el['shr-label'].value.trim();
+    state.points.push({ id: endId, label: lbl, tdbC: Tb, w: Wb, pressurePa: pa.pressurePa });
+    state.processes.push({ id: state.nextProcessId++, name: lbl || ('SHR ' + shr),
+      pointIds: [pa.id, endId], closed: false, paths: {} });
+    el['shr-value'].value = ''; el['shr-tdb'].value = ''; el['shr-label'].value = '';
+    save(); renderAll();
   }
 
   function renderProcessBuilder() {
@@ -300,7 +432,12 @@
             if (state.unit === IP) t += ' (' + (Math.abs(loads.totalW) / W_PER_BTUH / 12000).toFixed(1) + ' ton)';
             parts.push(t);
           }
-          loadLine = '<div class="seg-loads">' + parts.join(' · ') + '</div>';
+          var coil = coilADP(s);
+          var adpHtml = coil
+            ? '<div class="seg-loads"><span class="adp">ADP ' + coil.adpTdb.toFixed(1) + UNITS[state.unit].temp +
+              ' · BF ' + coil.bf.toFixed(2) + '</span></div>'
+            : '';
+          loadLine = '<div class="seg-loads">' + parts.join(' · ') + '</div>' + adpHtml;
         }
         return '<div class="seg-row"><span class="seg-label">' + lbl + '</span>' +
           '<select data-proc="' + proc.id + '" data-seg="' + s.index + '">' + options + '</select></div>' + loadLine;
@@ -634,6 +771,8 @@
     renderTable();
     renderProcessBuilder();
     renderProcessList();
+    renderMixBuilder();
+    renderShrBuilder();
     renderImport();
   }
 
@@ -696,6 +835,8 @@
     renderChart();
     renderTable();
     renderProcessBuilder();
+    renderMixBuilder();
+    renderShrBuilder();
   }
 
   // ---- persistence (on-device only) --------------------------------------
@@ -826,6 +967,17 @@
       renderProcessBuilder();
     });
     el['proc-add'].addEventListener('click', addProcess);
+
+    el['mix-a'].addEventListener('change', updateMixButton);
+    el['mix-b'].addEventListener('change', updateMixButton);
+    el['mix-a-flow'].addEventListener('input', updateMixButton);
+    el['mix-b-flow'].addEventListener('input', updateMixButton);
+    el['mix-add'].addEventListener('click', addMixedPoint);
+
+    el['shr-from'].addEventListener('change', updateShrButton);
+    el['shr-value'].addEventListener('input', updateShrButton);
+    el['shr-tdb'].addEventListener('input', updateShrButton);
+    el['shr-add'].addEventListener('click', addShrProcess);
 
     el['epw-input'].addEventListener('change', function () {
       var file = el['epw-input'].files[0];

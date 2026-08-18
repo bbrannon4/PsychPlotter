@@ -33,6 +33,12 @@ no database, and no data ever leaves your machine.**
   per-segment **sensible / latent / total load** (Btu/h + tons, or kW) and
   **sensible heat ratio**. Loads use the actual specific volume, so they stay
   correct at altitude (unlike the sea-level 1.08 / 0.68 / 4.5 factors).
+- **Cooling-coil analysis** — apparatus dew point (ADP) and bypass factor shown
+  automatically for any cooling/dehumidifying segment.
+- **Air mixing** — blend two points by airflow (mass + energy balance) into a
+  new mixed point (e.g. outdoor + return air).
+- **SHR line** — from a point, draw a process at a target sensible heat ratio to
+  a chosen supply dry-bulb, creating the supply point and the line.
 - **Chart export** — save the chart as a **PNG** or **PDF** image (works on any tab).
 - **Save / load projects** — export your points and processes to a small JSON
   file and re-import it later or share it. Kept as a portable file, not the cloud.
@@ -73,6 +79,13 @@ Then visit `http://localhost:8000`.
   which stays on your device and can be cleared with **Clear all**.
 - The entire tool is plain HTML/CSS/JavaScript with a single vendored,
   permissively licensed calculation library — nothing is fetched at runtime.
+
+## Branding
+
+Company fonts and colours are applied in one place: [`css/brand.css`](css/brand.css).
+Drop font files into `assets/fonts/`, uncomment the `@font-face` block, and set
+`--font`; set `--brand-accent` / `--brand-accent-2` for the primary colour. With
+that file left as-is, the app uses its built-in neutral defaults.
 
 ## Attribution
 

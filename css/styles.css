@@ -5,8 +5,8 @@
   --border: #313a47;
   --text: #e6ebf2;
   --muted: #94a1b2;
-  --accent: #4aa3ff;
-  --accent-2: #2b7fd4;
+  --accent: var(--brand-accent, #4aa3ff);
+  --accent-2: var(--brand-accent-2, #2b7fd4);
   --danger: #ff6b6b;
   --chart-bg: #12171e;
   --grid: #2a3340;
@@ -29,8 +29,8 @@
   --border: #d3d9e0;
   --text: #1a2029;
   --muted: #5b6672;
-  --accent: #2b7fd4;
-  --accent-2: #1f6bb8;
+  --accent: var(--brand-accent, #2b7fd4);
+  --accent-2: var(--brand-accent-2, #1f6bb8);
   --danger: #d94040;
   --chart-bg: #ffffff;
   --grid: #e2e7ee;
@@ -244,6 +244,11 @@ table.points td.label-cell, table.points th.label-cell { text-align: left; }
 .proc-airflow { font-size: 12px; color: var(--muted); margin: 8px 0 6px; }
 .proc-airflow input { width: 84px; padding: 4px 6px; font-size: 12px; }
 .seg-loads { font-size: 11px; color: var(--muted); margin: 3px 0 8px 4px; font-variant-numeric: tabular-nums; }
+.seg-loads .adp { color: var(--proc); }
+.mix-row { display: flex; align-items: center; gap: 8px; }
+.mix-row select { flex: 1; min-width: 0; }
+.mix-row input { width: 76px; }
+.mix-row .mix-unit { color: var(--muted); font-size: 12px; }
 
 /* Import tab */
 .file-input { width: 100%; font-size: 12px; color: var(--muted); }

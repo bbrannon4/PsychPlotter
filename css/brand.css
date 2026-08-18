@@ -1,0 +1,47 @@
+/*
+ * brand.css — company branding overrides.
+ *
+ * This is the ONE file to edit when you have company fonts and colours.
+ * It loads after styles.css, so anything set here wins. Everything is optional;
+ * with all of it commented out, the app uses its built-in neutral defaults.
+ *
+ * 1. FONT
+ *    - Drop the font files into  assets/fonts/  and uncomment the @font-face
+ *      block(s) below (woff2 preferred). Then set --font.
+ *    - Or, if the font is already installed on users' machines, just set --font
+ *      to its name with sensible fallbacks.
+ *
+ * 2. COLOURS
+ *    - Set --brand-accent (primary) and --brand-accent-2 (hover/darker).
+ *      These flow into buttons, the active unit/theme toggles, and focus rings.
+ *    - The chart line colours (--sat/--rh/--wb/--pt/--proc/…) can also be
+ *      overridden here if the brand has specific data colours; otherwise leave
+ *      them to the tuned light/dark defaults in styles.css.
+ */
+
+/* ---- 1. Company font (example — uncomment and adjust once you have the files)
+@font-face {
+  font-family: "CompanySans";
+  src: url("../assets/fonts/CompanySans.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "CompanySans";
+  src: url("../assets/fonts/CompanySans-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+:root {
+  --font: "CompanySans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+---- */
+
+/* ---- 2. Brand colours (example — uncomment and set your values)
+:root, :root[data-theme="light"], :root[data-theme="dark"] {
+  --brand-accent:   #0057b8;
+  --brand-accent-2: #003f86;
+}
+---- */
