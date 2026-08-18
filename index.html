@@ -4,8 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>PsychPlotter</title>
-  <link rel="stylesheet" href="css/styles.css?v=14" />
-  <link rel="stylesheet" href="css/brand.css?v=14" />
+  <link rel="stylesheet" href="css/styles.css?v=15" />
+  <link rel="stylesheet" href="css/brand.css?v=15" />
 </head>
 <body>
   <header class="app-header">
@@ -62,52 +62,48 @@
       <!-- POINTS & PROCESSES TAB -->
       <div class="tab-panel" id="tab-points" role="tabpanel">
         <div class="card">
-          <h2>Add a point</h2>
+          <div class="card-head">
+            <h2>Points</h2>
+            <button id="clear-all" class="btn small ghost" type="button">Clear all</button>
+          </div>
           <p class="hint">Enter dry-bulb plus one more property. The rest auto-calculate.</p>
           <form id="point-form" autocomplete="off">
-            <label class="field">
-              <span>Label <em class="opt-tag">(optional)</em></span>
-              <input id="pt-label" type="text" placeholder="e.g. Supply air" maxlength="40" />
-            </label>
-
-            <label class="field">
-              <span>Dry-bulb <em id="lbl-tdb-unit">(°F)</em></span>
-              <input id="pt-tdb" type="number" step="any" required placeholder="75" />
-            </label>
-
-            <label class="field">
-              <span>Second property</span>
-              <select id="pt-prop2">
-                <option value="rh">Relative humidity (%)</option>
-                <option value="twb">Wet-bulb temperature</option>
-                <option value="tdp">Dew-point temperature</option>
-              </select>
-            </label>
-
-            <label class="field">
-              <span id="lbl-prop2-name">Relative humidity <em id="lbl-prop2-unit">(%)</em></span>
-              <input id="pt-prop2val" type="number" step="any" required placeholder="50" />
-            </label>
-
+            <div class="field-row">
+              <label class="field">
+                <span>Dry-bulb <em id="lbl-tdb-unit">(°F)</em></span>
+                <input id="pt-tdb" type="number" step="any" required placeholder="75" />
+              </label>
+              <label class="field">
+                <span>Label <em class="opt-tag">(optional)</em></span>
+                <input id="pt-label" type="text" placeholder="e.g. Supply air" maxlength="40" />
+              </label>
+            </div>
+            <div class="field-row">
+              <label class="field">
+                <span>Second property</span>
+                <select id="pt-prop2">
+                  <option value="rh">Relative humidity (%)</option>
+                  <option value="twb">Wet-bulb temperature</option>
+                  <option value="tdp">Dew-point temperature</option>
+                </select>
+              </label>
+              <label class="field">
+                <span id="lbl-prop2-name">Relative humidity <em id="lbl-prop2-unit">(%)</em></span>
+                <input id="pt-prop2val" type="number" step="any" required placeholder="50" />
+              </label>
+            </div>
             <div class="form-actions">
               <button type="submit" class="btn primary">Plot point</button>
             </div>
             <p id="form-error" class="form-error" role="alert"></p>
           </form>
-        </div>
-
-        <div class="card">
-          <div class="card-head">
-            <h2>Points</h2>
-            <button id="clear-all" class="btn small ghost" type="button">Clear all</button>
-          </div>
           <div id="points-table-wrap" class="table-wrap">
             <p id="empty-msg" class="hint">No points yet.</p>
           </div>
         </div>
 
         <div class="card">
-          <h2>Build a process</h2>
+          <h2>Processes</h2>
           <p class="hint">Connect existing points in order. Repeat a point to close a
             cycle; reuse a point in another process to branch.</p>
           <label class="field">
@@ -127,11 +123,7 @@
             <button type="button" id="proc-clear-staging" class="btn small ghost">Reset</button>
           </div>
           <p id="proc-error" class="form-error" role="alert"></p>
-        </div>
-
-        <div class="card">
-          <h2>Processes</h2>
-          <div id="processes-wrap">
+          <div id="processes-wrap" class="processes-wrap">
             <p class="hint">No processes yet.</p>
           </div>
         </div>
@@ -211,8 +203,8 @@
     <span>Psychrometrics via <a href="https://github.com/psychrometrics/psychrolib" target="_blank" rel="noopener">PsychroLib</a> (ASHRAE 2017, MIT).</span>
   </footer>
 
-  <script src="js/psychrolib.js?v=14"></script>
-  <script src="js/chart.js?v=14"></script>
-  <script src="js/app.js?v=14"></script>
+  <script src="js/psychrolib.js?v=15"></script>
+  <script src="js/chart.js?v=15"></script>
+  <script src="js/app.js?v=15"></script>
 </body>
 </html>

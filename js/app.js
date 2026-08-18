@@ -943,10 +943,18 @@
     });
   }
 
+  // Keep the sticky chart's top offset in sync with the (wrapping) header height.
+  function syncHeaderHeight() {
+    var h = document.querySelector('.app-header');
+    if (h) document.documentElement.style.setProperty('--header-h', h.offsetHeight + 'px');
+  }
+
   // ---- wiring -------------------------------------------------------------
   function init() {
     grab();
     load();
+    syncHeaderHeight();
+    window.addEventListener('resize', syncHeaderHeight);
 
     el['unit-ip'].addEventListener('click', function () { applyUnit(IP); });
     el['unit-si'].addEventListener('click', function () { applyUnit(SI); });
