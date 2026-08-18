@@ -221,6 +221,10 @@
     }
     function sampleSegment(a, b, path) {
       var N = 24, out = [];
+      // Keep every sample within the endpoints' humidity-ratio range, so a
+      // curved path (e.g. "along saturation" from an unsaturated endpoint)
+      // can't spike above the higher endpoint before coming back down.
+      var wLo = Math.min(a.w, b.w), wHi = Math.max(a.w, b.w);
       var ref = null;
       if (path === 'wetbulb' || path === 'enthalpy') {
         ref = {
@@ -246,7 +250,9 @@
           var b0 = psychrolib.GetMoistAirEnthalpy(td, 1) - a0;
           w = (ref.h - a0) / b0;
         } else { w = a.w + (b.w - a.w) * f; } // straight: linear in W
-        out.push({ tdb: td, w: clampW(w, td) });
+        w = clampW(w, td);                     // clamp to saturation + chart bounds
+        if (w > wHi) w = wHi; else if (w < wLo) w = wLo; // stay within endpoint range
+        out.push({ tdb: td, w: w });
       }
       return out;
     }
