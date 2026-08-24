@@ -45,6 +45,10 @@ no database, and no data ever leaves your machine.**
   new mixed point (e.g. outdoor + return air).
 - **SHR line** — from a point, draw a process at a target sensible heat ratio to
   a chosen supply dry-bulb, creating the supply point and the line.
+- **Editable points** — edit a plotted point in place (✎) or remove it; processes
+  that reference it update automatically.
+- **Zoom & label size** — zoom/pan the chart (buttons, mouse wheel, or drag) and
+  scale all chart labels up or down; the chart is also resizable by dragging its corner.
 - **Chart export** — save the chart as a **PNG** or **PDF** image (works on any tab).
 - **Save / load projects** — export your points and processes to a small JSON
   file and re-import it later or share it. Kept as a portable file, not the cloud.

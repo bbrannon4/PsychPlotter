@@ -21,6 +21,8 @@
   var ATM_K = 2.25577e-5, ATM_E = 5.2559; // standard-atmosphere constants
   var M3S_PER_CFM = 0.0004719474;         // ft³/min -> m³/s
   var W_PER_BTUH = 0.29307107;            // Btu/h -> W  (1/3.412142)
+  var CHART_W = 820, CHART_H = 560;       // must match the chart.js viewBox
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
 
   var state = {
     unit: IP,
@@ -37,7 +39,10 @@
     nextProcessId: 1,
     weather: null,       // {name, count, points:[{tdbC,w}]} — session only, not persisted
     activeTab: 'points', // which tab's data the chart shows ('points' | 'import')
-    zones: { comfort: false, strategies: false, passive: false, dcRec: false, dcA1: false, dcA2: false } // overlay toggles (EPW tab)
+    zones: { comfort: false, strategies: false, passive: false, dcRec: false, dcA1: false, dcA2: false }, // overlay toggles (EPW tab)
+    editingId: null,     // point id currently being edited (null = adding a new point)
+    chartZoom: { z: 1, cx: CHART_W / 2, cy: CHART_H / 2 }, // SVG viewBox zoom/pan (session only)
+    labelScale: 1        // chart label font-size multiplier (session only)
   };
 
   var stagingIds = [];   // point ids being assembled into a new process
@@ -107,7 +112,8 @@
   function grab() {
     ['unit-ip', 'unit-si', 'theme-dark', 'theme-light',
      'elevation', 'elevation-unit', 'pressure', 'pressure-unit',
-     'point-form', 'pt-label', 'pt-tdb', 'pt-prop2', 'pt-prop2val',
+     'point-form', 'pt-label', 'pt-tdb', 'pt-prop2', 'pt-prop2val', 'pt-submit', 'pt-cancel',
+     'zoom-in', 'zoom-out', 'zoom-reset', 'font-inc', 'font-dec',
      'lbl-tdb-unit', 'lbl-prop2-name', 'lbl-prop2-unit', 'form-error',
      'points-table-wrap', 'clear-all', 'chart-container',
      'opt-tdb-axis', 'opt-w-axis', 'opt-rh', 'opt-wb', 'opt-enth', 'opt-dp', 'opt-grid',
@@ -176,6 +182,71 @@
       }) : [],
       show: state.show
     });
+    applyZoom();   // render() resets the viewBox; reapply the current zoom/pan
+  }
+
+  // ---- chart zoom / pan (SVG viewBox) and label size ----------------------
+  function applyZoom() {
+    var svg = el['chart-container'].querySelector('svg');
+    if (!svg) return;
+    var z = state.chartZoom.z, vw = CHART_W / z, vh = CHART_H / z;
+    var vx = clamp(state.chartZoom.cx - vw / 2, 0, CHART_W - vw);
+    var vy = clamp(state.chartZoom.cy - vh / 2, 0, CHART_H - vh);
+    state.chartZoom.cx = vx + vw / 2; state.chartZoom.cy = vy + vh / 2;   // keep centre consistent
+    svg.setAttribute('viewBox', vx + ' ' + vy + ' ' + vw + ' ' + vh);
+  }
+  function setZoom(z, cx, cy) {
+    state.chartZoom.z = clamp(z, 1, 8);
+    if (cx != null) state.chartZoom.cx = cx;
+    if (cy != null) state.chartZoom.cy = cy;
+    applyZoom();
+  }
+  function applyLabelScale() {
+    document.documentElement.style.setProperty('--label-scale', state.labelScale);
+  }
+  function wireChartControls() {
+    el['zoom-in'].addEventListener('click', function () { setZoom(state.chartZoom.z * 1.3); });
+    el['zoom-out'].addEventListener('click', function () { setZoom(state.chartZoom.z / 1.3); });
+    el['zoom-reset'].addEventListener('click', function () { setZoom(1, CHART_W / 2, CHART_H / 2); });
+    el['font-inc'].addEventListener('click', function () { state.labelScale = clamp(state.labelScale + 0.15, 0.7, 2); applyLabelScale(); });
+    el['font-dec'].addEventListener('click', function () { state.labelScale = clamp(state.labelScale - 0.15, 0.7, 2); applyLabelScale(); });
+
+    var container = el['chart-container'];
+    container.addEventListener('wheel', function (e) {
+      var svg = container.querySelector('svg'); if (!svg) return;
+      e.preventDefault();
+      var rect = svg.getBoundingClientRect();
+      var z = state.chartZoom.z, vw = CHART_W / z, vh = CHART_H / z;
+      var vx = state.chartZoom.cx - vw / 2, vy = state.chartZoom.cy - vh / 2;
+      var fx = (e.clientX - rect.left) / rect.width, fy = (e.clientY - rect.top) / rect.height;
+      var ux = vx + fx * vw, uy = vy + fy * vh;                       // point under the cursor
+      var nz = clamp(z * (e.deltaY < 0 ? 1.15 : 1 / 1.15), 1, 8);
+      var nvw = CHART_W / nz, nvh = CHART_H / nz;
+      state.chartZoom.z = nz;
+      state.chartZoom.cx = (ux - fx * nvw) + nvw / 2;                 // keep that point fixed
+      state.chartZoom.cy = (uy - fy * nvh) + nvh / 2;
+      applyZoom();
+    }, { passive: false });
+
+    var pan = null;
+    container.addEventListener('pointerdown', function (e) {
+      if (state.chartZoom.z <= 1) return;
+      var svg = container.querySelector('svg'); if (!svg) return;
+      var rect = svg.getBoundingClientRect();
+      pan = { x: e.clientX, y: e.clientY, cx: state.chartZoom.cx, cy: state.chartZoom.cy, rw: rect.width, rh: rect.height };
+      container.setPointerCapture(e.pointerId);
+      container.style.cursor = 'grabbing';
+    });
+    container.addEventListener('pointermove', function (e) {
+      if (!pan) return;
+      var z = state.chartZoom.z;
+      state.chartZoom.cx = pan.cx - (e.clientX - pan.x) / pan.rw * (CHART_W / z);
+      state.chartZoom.cy = pan.cy - (e.clientY - pan.y) / pan.rh * (CHART_H / z);
+      applyZoom();
+    });
+    var endPan = function () { pan = null; el['chart-container'].style.cursor = ''; };
+    container.addEventListener('pointerup', endPan);
+    container.addEventListener('pointercancel', endPan);
   }
 
   // ---- processes ----------------------------------------------------------
@@ -860,8 +931,10 @@
         '<td>' + wDisplay(d.w, state.unit) + '</td>' +
         '<td>' + hDisplay(d.h, state.unit) + '</td>' +
         '<td>' + d.v.toFixed(state.unit === IP ? 2 : 3) + '</td>' +
-        '<td><button class="row-del" data-id="' + p.id + '" title="Remove">×</button></td>' +
-        '</tr>';
+        '<td class="row-actions">' +
+          '<button class="row-edit" data-id="' + p.id + '" title="Edit">✎</button>' +
+          '<button class="row-del" data-id="' + p.id + '" title="Remove">×</button>' +
+        '</td></tr>';
     }).join('');
 
     wrap.innerHTML =
@@ -882,6 +955,34 @@
         removePoint(parseInt(b.getAttribute('data-id'), 10));
       });
     });
+    Array.prototype.forEach.call(wrap.querySelectorAll('.row-edit'), function (b) {
+      b.addEventListener('click', function () {
+        startEditPoint(parseInt(b.getAttribute('data-id'), 10));
+      });
+    });
+  }
+
+  // ---- editing an existing point -----------------------------------------
+  function startEditPoint(id) {
+    var p = pointById(id);
+    if (!p) return;
+    state.editingId = id;
+    var d = derive(p, state.unit);
+    el['pt-tdb'].value = +d.tdb.toFixed(2);
+    el['pt-label'].value = p.label || '';
+    el['pt-prop2'].value = 'rh';
+    refreshUnitLabels();
+    el['pt-prop2val'].value = +d.rh.toFixed(1);
+    el['pt-submit'].textContent = 'Update point';
+    el['pt-cancel'].hidden = false;
+    el['form-error'].textContent = '';
+    el['pt-tdb'].focus();
+  }
+  function exitEditMode() {
+    state.editingId = null;
+    el['pt-submit'].textContent = 'Plot point';
+    el['pt-cancel'].hidden = true;
+    el['pt-label'].value = ''; el['pt-tdb'].value = ''; el['pt-prop2val'].value = '';
   }
 
   function renderAll() {
@@ -940,24 +1041,19 @@
       return;
     }
 
-    state.points.push({
-      id: state.nextId++,
-      label: el['pt-label'].value.trim(),        // optional; blank falls back to P#
-      tdbC: state.unit === IP ? fToC(tdb) : tdb,
-      w: w,
-      pressurePa: state.pressurePa
-    });
-
-    el['pt-label'].value = '';
-    el['pt-tdb'].value = '';
-    el['pt-prop2val'].value = '';
-    el['pt-tdb'].focus();
+    var tdbC = state.unit === IP ? fToC(tdb) : tdb;
+    var label = el['pt-label'].value.trim();
+    if (state.editingId != null) {                 // update the existing point in place
+      var pt = pointById(state.editingId);
+      if (pt) { pt.label = label; pt.tdbC = tdbC; pt.w = w; pt.pressurePa = state.pressurePa; }
+      exitEditMode();
+    } else {
+      state.points.push({ id: state.nextId++, label: label, tdbC: tdbC, w: w, pressurePa: state.pressurePa });
+      el['pt-label'].value = ''; el['pt-tdb'].value = ''; el['pt-prop2val'].value = '';
+      el['pt-tdb'].focus();
+    }
     save();
-    renderChart();
-    renderTable();
-    renderProcessBuilder();
-    renderMixBuilder();
-    renderShrBuilder();
+    renderAll();   // processes referencing an edited point recompute too
   }
 
   // ---- persistence (on-device only) --------------------------------------
@@ -1087,6 +1183,8 @@
 
     el['pt-prop2'].addEventListener('change', refreshUnitLabels);
     el['point-form'].addEventListener('submit', addPoint);
+    el['pt-cancel'].addEventListener('click', exitEditMode);
+    wireChartControls();
 
     el['proc-add-point'].addEventListener('change', function () {
       var v = parseInt(el['proc-add-point'].value, 10);

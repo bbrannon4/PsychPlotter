@@ -4,8 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>PsychPlotter</title>
-  <link rel="stylesheet" href="css/styles.css?v=18" />
-  <link rel="stylesheet" href="css/brand.css?v=18" />
+  <link rel="stylesheet" href="css/styles.css?v=19" />
+  <link rel="stylesheet" href="css/brand.css?v=19" />
 </head>
 <body>
   <header class="app-header">
@@ -48,8 +48,19 @@
         <label><input type="checkbox" id="opt-grid" /> Grid</label>
       </div>
       <div class="chart-actions">
-        <button id="export-png" class="btn small ghost" type="button">Export PNG</button>
-        <button id="export-pdf" class="btn small ghost" type="button">Export PDF</button>
+        <div class="ctl-group">
+          <span class="ctl-label">Zoom</span>
+          <button id="zoom-out" class="btn small ghost" type="button" title="Zoom out">−</button>
+          <button id="zoom-reset" class="btn small ghost" type="button" title="Reset zoom">Reset</button>
+          <button id="zoom-in" class="btn small ghost" type="button" title="Zoom in">+</button>
+          <span class="ctl-label">Labels</span>
+          <button id="font-dec" class="btn small ghost" type="button" title="Smaller labels">A−</button>
+          <button id="font-inc" class="btn small ghost" type="button" title="Larger labels">A+</button>
+        </div>
+        <div class="ctl-group">
+          <button id="export-png" class="btn small ghost" type="button">Export PNG</button>
+          <button id="export-pdf" class="btn small ghost" type="button">Export PDF</button>
+        </div>
       </div>
     </section>
 
@@ -93,7 +104,8 @@
               </label>
             </div>
             <div class="form-actions">
-              <button type="submit" class="btn primary">Plot point</button>
+              <button type="submit" id="pt-submit" class="btn primary">Plot point</button>
+              <button type="button" id="pt-cancel" class="btn small ghost" hidden>Cancel</button>
             </div>
             <p id="form-error" class="form-error" role="alert"></p>
           </form>
@@ -215,8 +227,8 @@
     <span>Psychrometrics via <a href="https://github.com/psychrometrics/psychrolib" target="_blank" rel="noopener">PsychroLib</a> (ASHRAE 2017, MIT).</span>
   </footer>
 
-  <script src="js/psychrolib.js?v=18"></script>
-  <script src="js/chart.js?v=18"></script>
-  <script src="js/app.js?v=18"></script>
+  <script src="js/psychrolib.js?v=19"></script>
+  <script src="js/chart.js?v=19"></script>
+  <script src="js/app.js?v=19"></script>
 </body>
 </html>

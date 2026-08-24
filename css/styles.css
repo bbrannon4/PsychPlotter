@@ -185,11 +185,13 @@ table.points th, table.points td {
 table.points th { color: var(--muted); font-weight: 600; }
 table.points td.label-cell, table.points th.label-cell { text-align: left; }
 .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
-.row-del {
+.row-del, .row-edit {
   background: transparent; border: 0; color: var(--muted);
-  cursor: pointer; font-size: 15px; line-height: 1; padding: 0 2px;
+  cursor: pointer; font-size: 14px; line-height: 1; padding: 0 3px;
 }
 .row-del:hover { color: var(--danger); }
+.row-edit:hover { color: var(--accent); }
+.row-actions { white-space: nowrap; }
 
 .app-footer {
   display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
@@ -200,24 +202,25 @@ table.points td.label-cell, table.points th.label-cell { text-align: left; }
 .app-footer a:hover { text-decoration: underline; }
 
 /* Chart SVG element styling */
-.chart-svg { background: var(--chart-bg); border-radius: 8px; }
+/* All label sizes are em-relative to this base, so --label-scale resizes them together. */
+.chart-svg { background: var(--chart-bg); border-radius: 8px; font-size: calc(11px * var(--label-scale, 1)); }
 .axis-line { stroke: var(--grid-strong); stroke-width: 1; }
 .grid-line { stroke: var(--grid); stroke-width: 1; }
 .rh-line { fill: none; stroke: var(--rh); stroke-width: 1; }
 .wb-line { fill: none; stroke: var(--wb); stroke-width: 0.8; stroke-dasharray: 4 3; opacity: 0.7; }
 .enth-line { fill: none; stroke: var(--enth); stroke-width: 0.8; opacity: 0.75; }
-.enth-label { fill: var(--enth); font-size: 9px; font-family: var(--font); }
+.enth-label { fill: var(--enth); font-size: 0.82em; font-family: var(--font); }
 .dp-line { fill: none; stroke: var(--dp); stroke-width: 0.8; stroke-dasharray: 2 3; opacity: 0.7; }
-.dp-label { fill: var(--dp); font-size: 9px; font-family: var(--font); }
-.axis-label { fill: var(--muted); font-size: 11px; font-family: var(--font); }
-.axis-title { fill: var(--text); font-size: 12px; font-family: var(--font); font-weight: 600; }
-.curve-label { fill: var(--rh); font-size: 10px; font-family: var(--font); }
-.wb-label { fill: var(--wb); font-size: 9px; font-family: var(--font); }
+.dp-label { fill: var(--dp); font-size: 0.82em; font-family: var(--font); }
+.axis-label { fill: var(--muted); font-size: 1em; font-family: var(--font); }
+.axis-title { fill: var(--text); font-size: 1.09em; font-family: var(--font); font-weight: 600; }
+.curve-label { fill: var(--rh); font-size: 0.91em; font-family: var(--font); }
+.wb-label { fill: var(--wb); font-size: 0.82em; font-family: var(--font); }
 .pt-marker { fill: var(--pt); stroke: var(--chart-bg); stroke-width: 1.5; }
-.pt-label { fill: var(--text); font-size: 11px; font-family: var(--font); font-weight: 600; paint-order: stroke; stroke: var(--chart-bg); stroke-width: 3px; }
+.pt-label { fill: var(--text); font-size: 1em; font-family: var(--font); font-weight: 600; paint-order: stroke; stroke: var(--chart-bg); stroke-width: 3px; }
 .proc-line { stroke: var(--proc); stroke-width: 1.8; fill: none; }
 .proc-arrow-head { fill: var(--proc); }
-.proc-label { fill: var(--proc); font-size: 10px; font-family: var(--font); font-weight: 600; paint-order: stroke; stroke: var(--chart-bg); stroke-width: 3px; }
+.proc-label { fill: var(--proc); font-size: 0.91em; font-family: var(--font); font-weight: 600; paint-order: stroke; stroke: var(--chart-bg); stroke-width: 3px; }
 .wx-layer { opacity: 0.32; }
 .wx-layer circle { fill: var(--wx); }
 .zone { stroke-width: 1.5; }
@@ -325,7 +328,10 @@ table.points td.label-cell, table.points th.label-cell { text-align: left; }
 .chart-options label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
 .chart-options input { accent-color: var(--accent); }
 
-.chart-actions { display: flex; gap: 8px; justify-content: flex-end; padding: 8px 12px 2px; }
+.chart-actions { display: flex; gap: 8px 16px; justify-content: space-between; align-items: center; flex-wrap: wrap; padding: 8px 12px 2px; }
+.ctl-group { display: flex; gap: 6px; align-items: center; }
+.ctl-label { font-size: 11px; color: var(--muted); margin-left: 6px; }
+.ctl-group .btn.small { padding: 4px 8px; min-width: 26px; }
 
 @media (max-width: 860px) {
   .layout { grid-template-columns: 1fr; }
